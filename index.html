@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Arcade Hub</title>
+    <title>Arcade Hub XL</title>
     <style>
         * {
             box-sizing: border-box;
@@ -12,7 +12,7 @@
         }
         body {
             margin: 0;
-            padding: 15px;
+            padding: 10px;
             background-color: #0f172a;
             color: #f8fafc;
             font-family: system-ui, -apple-system, sans-serif;
@@ -23,17 +23,17 @@
         }
         .header {
             text-align: center;
-            margin-bottom: 15px;
+            margin-bottom: 10px;
         }
         .header h1 {
-            margin: 0 0 5px 0;
-            font-size: 24px;
+            margin: 0 0 4px 0;
+            font-size: 26px;
             color: #38bdf8;
         }
         .menu-bar {
             display: flex;
             gap: 8px;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
             flex-wrap: wrap;
             justify-content: center;
         }
@@ -43,7 +43,7 @@
             border: 2px solid #38bdf8;
             padding: 8px 14px;
             border-radius: 8px;
-            font-size: 13px;
+            font-size: 14px;
             font-weight: bold;
             cursor: pointer;
         }
@@ -53,7 +53,8 @@
         }
         #game-card {
             position: relative;
-            width: 320px;
+            width: 450px;
+            max-width: 95vw;
             background: #1e293b;
             border-radius: 12px;
             overflow: hidden;
@@ -65,28 +66,33 @@
         canvas {
             background: #000;
             display: block;
+            width: 100%;
+            height: auto;
         }
         .controls {
             width: 100%;
             padding: 10px;
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 5px;
+            gap: 6px;
             background: #0f172a;
         }
         .ctrl-btn {
             background: #334155;
             color: white;
             border: none;
-            padding: 12px 5px;
+            padding: 14px 5px;
             border-radius: 6px;
-            font-size: 15px;
+            font-size: 16px;
             font-weight: bold;
             text-align: center;
             touch-action: manipulation;
         }
         .ctrl-btn:active {
             background: #475569;
+        }
+        .btn-shoot {
+            background: #ef4444 !important;
         }
         .hidden {
             display: none !important;
@@ -97,19 +103,20 @@
 
     <div class="header">
         <h1>Mini Game Arcade</h1>
-        <p style="margin:0; font-size: 12px; color: #94a3b8;">เลือกเกมที่ต้องการเล่นด้านล่าง</p>
+        <p style="margin:0; font-size: 13px; color: #94a3b8;">เลือกเกมที่ต้องการเล่นด้านล่าง</p>
     </div>
 
     <!-- เมนูเลือกเกม -->
     <div class="menu-bar">
         <button class="btn active" id="btn-flappy" onclick="switchGame('flappy')">Flappy Bird</button>
-        <button class="btn" id="btn-snake" onclick="switchGame('snake')">Snake Game</button>
+        <button class="btn" id="btn-snake" onclick="switchGame('snake')">Snake</button>
         <button class="btn" id="btn-tetris" onclick="switchGame('tetris')">Tetris</button>
+        <button class="btn" id="btn-shooter" onclick="switchGame('shooter')">Space Shooter 🚀</button>
     </div>
 
     <!-- พื้นที่แสดงเกม -->
     <div id="game-card">
-        <canvas id="canvas" width="320" height="400"></canvas>
+        <canvas id="canvas" width="450" height="550"></canvas>
         
         <!-- ปุ่มควบคุมสำหรับเกมงู -->
         <div id="snake-controls" class="controls hidden">
@@ -130,6 +137,13 @@
             <button class="ctrl-btn" onclick="dropTetris()">▼ ลง</button>
             <div></div>
         </div>
+
+        <!-- ปุ่มควบคุมสำหรับเกม Space Shooter -->
+        <div id="shooter-controls" class="controls hidden">
+            <button class="ctrl-btn" onclick="moveShooter(-20)">◄ ซ้าย</button>
+            <button class="ctrl-btn btn-shoot" onclick="shootBullet()">🔥 ยิง</button>
+            <button class="ctrl-btn" onclick="moveShooter(20)">ขวา ►</button>
+        </div>
     </div>
 
     <script>
@@ -137,19 +151,22 @@
         const ctx = canvas.getContext("2d");
         const snakeControls = document.getElementById("snake-controls");
         const tetrisControls = document.getElementById("tetris-controls");
+        const shooterControls = document.getElementById("shooter-controls");
 
         let currentGame = 'flappy';
         let gameLoopId = null;
 
-        // --- ระบบสลับเกม ---
         function switchGame(gameName) {
             currentGame = gameName;
             document.getElementById("btn-flappy").classList.toggle("active", gameName === 'flappy');
             document.getElementById("btn-snake").classList.toggle("active", gameName === 'snake');
             document.getElementById("btn-tetris").classList.toggle("active", gameName === 'tetris');
+            document.getElementById("btn-shooter").classList.toggle("active", gameName === 'shooter');
 
             snakeControls.classList.add("hidden");
             tetrisControls.classList.add("hidden");
+            shooterControls.classList.add("hidden");
+
             if (tetrisInterval) clearInterval(tetrisInterval);
             if (snakeInterval) clearInterval(snakeInterval);
 
@@ -159,6 +176,9 @@
             } else if (gameName === 'tetris') {
                 tetrisControls.classList.remove("hidden");
                 initTetris();
+            } else if (gameName === 'shooter') {
+                shooterControls.classList.remove("hidden");
+                initShooter();
             } else {
                 initFlappy();
             }
@@ -171,7 +191,7 @@
 
         function initFlappy() {
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
-            flappyPlayer = { x: 50, y: 180, w: 20, h: 20, v: 0, g: 0.35, jump: -6 };
+            flappyPlayer = { x: 70, y: 250, w: 25, h: 25, v: 0, g: 0.4, jump: -7 };
             flappyPipes = [];
             flappyScore = 0;
             flappyGameOver = false;
@@ -196,26 +216,26 @@
                 }
 
                 if (Math.random() < 0.015) {
-                    let gap = 110;
-                    let top = Math.floor(Math.random() * (canvas.height - gap - 60)) + 30;
+                    let gap = 140;
+                    let top = Math.floor(Math.random() * (canvas.height - gap - 80)) + 40;
                     flappyPipes.push({ x: canvas.width, top: top, bottom: canvas.height - top - gap, passed: false });
                 }
 
                 for (let i = flappyPipes.length - 1; i >= 0; i--) {
                     let p = flappyPipes[i];
-                    p.x -= 2;
+                    p.x -= 3;
 
-                    if (flappyPlayer.x < p.x + 35 && flappyPlayer.x + flappyPlayer.w > p.x &&
+                    if (flappyPlayer.x < p.x + 45 && flappyPlayer.x + flappyPlayer.w > p.x &&
                        (flappyPlayer.y < p.top || flappyPlayer.y + flappyPlayer.h > canvas.height - p.bottom)) {
                         flappyGameOver = true;
                     }
 
-                    if (!p.passed && p.x + 35 < flappyPlayer.x) {
+                    if (!p.passed && p.x + 45 < flappyPlayer.x) {
                         flappyScore++;
                         p.passed = true;
                     }
 
-                    if (p.x < -40) flappyPipes.splice(i, 1);
+                    if (p.x < -50) flappyPipes.splice(i, 1);
                 }
             }
 
@@ -227,19 +247,20 @@
 
             ctx.fillStyle = "#0284c7";
             for (let p of flappyPipes) {
-                ctx.fillRect(p.x, 0, 35, p.top);
-                ctx.fillRect(p.x, canvas.height - p.bottom, 35, p.bottom);
+                ctx.fillRect(p.x, 0, 45, p.top);
+                ctx.fillRect(p.x, canvas.height - p.bottom, 45, p.bottom);
             }
 
             ctx.fillStyle = "#fff";
-            ctx.font = "18px sans-serif";
-            ctx.fillText("Score: " + flappyScore, 15, 30);
+            ctx.font = "20px sans-serif";
+            ctx.fillText("Score: " + flappyScore, 20, 35);
 
             if (flappyGameOver) {
                 ctx.fillStyle = "rgba(0,0,0,0.6)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#fff";
                 ctx.textAlign = "center";
+                ctx.font = "22px sans-serif";
                 ctx.fillText("Game Over - แตะเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2);
                 ctx.textAlign = "left";
             } else {
@@ -256,12 +277,12 @@
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
             if (snakeInterval) clearInterval(snakeInterval);
             
-            snake = [{x: 160, y: 200}, {x: 140, y: 200}];
+            snake = [{x: 220, y: 260}, {x: 195, y: 260}];
             snakeDir = 'RIGHT';
             snakeScore = 0;
             snakeGameOver = false;
             spawnSnakeFood();
-            snakeInterval = setInterval(loopSnake, 120);
+            snakeInterval = setInterval(loopSnake, 110);
         }
 
         function setSnakeDir(dir) {
@@ -273,8 +294,8 @@
 
         function spawnSnakeFood() {
             snakeFood = {
-                x: Math.floor(Math.random() * (canvas.width / 20)) * 20,
-                y: Math.floor(Math.random() * (canvas.height / 20)) * 20
+                x: Math.floor(Math.random() * (canvas.width / 25)) * 25,
+                y: Math.floor(Math.random() * (canvas.height / 25)) * 25
             };
         }
 
@@ -282,10 +303,10 @@
             if (currentGame !== 'snake' || snakeGameOver) return;
 
             let head = { ...snake[0] };
-            if (snakeDir === 'UP') head.y -= 20;
-            if (snakeDir === 'DOWN') head.y += 20;
-            if (snakeDir === 'LEFT') head.x -= 20;
-            if (snakeDir === 'RIGHT') head.x += 20;
+            if (snakeDir === 'UP') head.y -= 25;
+            if (snakeDir === 'DOWN') head.y += 25;
+            if (snakeDir === 'LEFT') head.x -= 25;
+            if (snakeDir === 'RIGHT') head.x += 25;
 
             if (head.x < 0 || head.x >= canvas.width || head.y < 0 || head.y >= canvas.height ||
                 snake.some(segment => segment.x === head.x && segment.y === head.y)) {
@@ -306,22 +327,23 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.fillStyle = "#ef4444";
-            ctx.fillRect(snakeFood.x, snakeFood.y, 18, 18);
+            ctx.fillRect(snakeFood.x, snakeFood.y, 23, 23);
 
             ctx.fillStyle = "#22c55e";
             for (let s of snake) {
-                ctx.fillRect(s.x, s.y, 18, 18);
+                ctx.fillRect(s.x, s.y, 23, 23);
             }
 
             ctx.fillStyle = "#fff";
-            ctx.font = "18px sans-serif";
-            ctx.fillText("Score: " + snakeScore, 15, 30);
+            ctx.font = "20px sans-serif";
+            ctx.fillText("Score: " + snakeScore, 20, 35);
 
             if (snakeGameOver) {
                 ctx.fillStyle = "rgba(0,0,0,0.6)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#fff";
                 ctx.textAlign = "center";
+                ctx.font = "22px sans-serif";
                 ctx.fillText("Game Over - กดปุ่มเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2);
                 ctx.textAlign = "left";
             }
@@ -332,18 +354,18 @@
         // ==========================================
         const COLS = 10;
         const ROWS = 20;
-        const BLOCK_SIZE = 20;
-        const BOARD_OFFSET_X = 60; // จัดให้อยู่กลางจอ 320px
+        const BLOCK_SIZE = 25;
+        const BOARD_OFFSET_X = 100;
         let board, currentPiece, tetrisScore, tetrisGameOver, tetrisInterval;
 
         const SHAPES = [
-            { shape: [[1, 1, 1, 1]], color: '#00f0f0' }, // I
-            { shape: [[1, 1], [1, 1]], color: '#f0f000' }, // O
-            { shape: [[0, 1, 0], [1, 1, 1]], color: '#a000f0' }, // T
-            { shape: [[1, 0, 0], [1, 1, 1]], color: '#0000f0' }, // L
-            { shape: [[0, 0, 1], [1, 1, 1]], color: '#f0a000' }, // J
-            { shape: [[0, 1, 1], [1, 1, 0]], color: '#00f000' }, // S
-            { shape: [[1, 1, 0], [0, 1, 1]], color: '#f00000' }  // Z
+            { shape: [[1, 1, 1, 1]], color: '#00f0f0' },
+            { shape: [[1, 1], [1, 1]], color: '#f0f000' },
+            { shape: [[0, 1, 0], [1, 1, 1]], color: '#a000f0' },
+            { shape: [[1, 0, 0], [1, 1, 1]], color: '#0000f0' },
+            { shape: [[0, 0, 1], [1, 1, 1]], color: '#f0a000' },
+            { shape: [[0, 1, 1], [1, 1, 0]], color: '#00f000' },
+            { shape: [[1, 1, 0], [0, 1, 1]], color: '#f00000' }
         ];
 
         function initTetris() {
@@ -354,7 +376,7 @@
             tetrisScore = 0;
             tetrisGameOver = false;
             spawnTetrisPiece();
-            tetrisInterval = setInterval(loopTetris, 500);
+            tetrisInterval = setInterval(loopTetris, 450);
             drawTetris();
         }
 
@@ -394,7 +416,6 @@
                     }
                 }
             }
-            // ลบแถวที่เต็ม
             for (let r = ROWS - 1; r >= 0; r--) {
                 if (board[r].every(cell => cell !== 0)) {
                     board.splice(r, 1);
@@ -444,7 +465,6 @@
             ctx.fillStyle = "#0f172a";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // วาดตารางพื้นหลัง
             ctx.strokeStyle = "#1e293b";
             for (let r = 0; r < ROWS; r++) {
                 for (let c = 0; c < COLS; c++) {
@@ -456,7 +476,6 @@
                 }
             }
 
-            // วาดตัวต่อปัจจุบัน
             if (currentPiece && !tetrisGameOver) {
                 ctx.fillStyle = currentPiece.color;
                 for (let r = 0; r < currentPiece.shape.length; r++) {
@@ -473,37 +492,148 @@
                 }
             }
 
-            // แสดงคะแนน
             ctx.fillStyle = "#fff";
-            ctx.font = "16px sans-serif";
-            ctx.fillText("Score: " + tetrisScore, 10, 25);
+            ctx.font = "18px sans-serif";
+            ctx.fillText("Score: " + tetrisScore, 10, 30);
 
             if (tetrisGameOver) {
                 ctx.fillStyle = "rgba(0,0,0,0.7)";
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "#fff";
                 ctx.textAlign = "center";
-                ctx.font = "20px sans-serif";
+                ctx.font = "24px sans-serif";
                 ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 10);
-                ctx.font = "14px sans-serif";
-                ctx.fillText("กดเปลี่ยนเกมแล้วสลับกลับเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.font = "16px sans-serif";
+                ctx.fillText("สลับเกมเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2 + 20);
                 ctx.textAlign = "left";
             }
         }
 
-        // Event Listeners สำหรับสัมผัสหน้าจอ Flappy Bird
+        // ==========================================
+        // 4. GAME: SPACE SHOOTER (ใหม่)
+        // ==========================================
+        let shooterPlayer, bullets, enemies, shooterScore, shooterGameOver;
+
+        function initShooter() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            shooterPlayer = { x: canvas.width / 2 - 20, y: canvas.height - 50, w: 40, h: 30 };
+            bullets = [];
+            enemies = [];
+            shooterScore = 0;
+            shooterGameOver = false;
+            loopShooter();
+        }
+
+        function moveShooter(dir) {
+            if (currentGame !== 'shooter' || shooterGameOver) return;
+            shooterPlayer.x += dir;
+            if (shooterPlayer.x < 0) shooterPlayer.x = 0;
+            if (shooterPlayer.x + shooterPlayer.w > canvas.width) shooterPlayer.x = canvas.width - shooterPlayer.w;
+        }
+
+        function shootBullet() {
+            if (currentGame !== 'shooter') return;
+            if (shooterGameOver) {
+                initShooter();
+                return;
+            }
+            bullets.push({ x: shooterPlayer.x + shooterPlayer.w / 2 - 3, y: shooterPlayer.y, w: 6, h: 12 });
+        }
+
+        function loopShooter() {
+            if (currentGame !== 'shooter') return;
+
+            if (!shooterGameOver) {
+                // ขยับกระสุน
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    bullets[i].y -= 7;
+                    if (bullets[i].y < 0) bullets.splice(i, 1);
+                }
+
+                // สุ่มสร้างศัตรู
+                if (Math.random() < 0.03) {
+                    enemies.push({ x: Math.random() * (canvas.width - 35), y: -30, w: 35, h: 35, speed: Math.random() * 2 + 2 });
+                }
+
+                // ขยับศัตรู & ตรวจจับการชน
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    let e = enemies[i];
+                    e.y += e.speed;
+
+                    // ศัตรูชนยานผู้เล่น
+                    if (shooterPlayer.x < e.x + e.w && shooterPlayer.x + shooterPlayer.w > e.x &&
+                        shooterPlayer.y < e.y + e.h && shooterPlayer.y + shooterPlayer.h > e.y) {
+                        shooterGameOver = true;
+                    }
+
+                    // กระสุน ยิงชน ศัตรู
+                    for (let j = bullets.length - 1; j >= 0; j--) {
+                        let b = bullets[j];
+                        if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
+                            shooterScore += 10;
+                            enemies.splice(i, 1);
+                            bullets.splice(j, 1);
+                            break;
+                        }
+                    }
+
+                    if (e && e.y > canvas.height) enemies.splice(i, 1);
+                }
+            }
+
+            // Draw
+            ctx.fillStyle = "#090d16";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // วาดผู้เล่น (ยาน)
+            ctx.fillStyle = "#38bdf8";
+            ctx.beginPath();
+            ctx.moveTo(shooterPlayer.x + shooterPlayer.w / 2, shooterPlayer.y);
+            ctx.lineTo(shooterPlayer.x, shooterPlayer.y + shooterPlayer.h);
+            ctx.lineTo(shooterPlayer.x + shooterPlayer.w, shooterPlayer.y + shooterPlayer.h);
+            ctx.fill();
+
+            // วาดกระสุน
+            ctx.fillStyle = "#facc15";
+            for (let b of bullets) {
+                ctx.fillRect(b.x, b.y, b.w, b.h);
+            }
+
+            // วาดศัตรู
+            ctx.fillStyle = "#ef4444";
+            for (let e of enemies) {
+                ctx.fillRect(e.x, e.y, e.w, e.h);
+            }
+
+            ctx.fillStyle = "#fff";
+            ctx.font = "20px sans-serif";
+            ctx.fillText("Score: " + shooterScore, 20, 35);
+
+            if (shooterGameOver) {
+                ctx.fillStyle = "rgba(0,0,0,0.7)";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#fff";
+                ctx.textAlign = "center";
+                ctx.font = "24px sans-serif";
+                ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 10);
+                ctx.font = "16px sans-serif";
+                ctx.fillText("กดปุ่มยิงเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.textAlign = "left";
+            } else {
+                gameLoopId = requestAnimationFrame(loopShooter);
+            }
+        }
+
+        // Listeners สำหรับ Flappy Bird
         canvas.addEventListener("touchstart", (e) => {
             e.preventDefault();
             if (currentGame === 'flappy') triggerFlappyJump();
-            else if (currentGame === 'snake' && snakeGameOver) initSnake();
         }, { passive: false });
 
         canvas.addEventListener("mousedown", () => {
             if (currentGame === 'flappy') triggerFlappyJump();
-            else if (currentGame === 'snake' && snakeGameOver) initSnake();
         });
 
-        // เริ่มต้นด้วยเกมแรก
         initFlappy();
     </script>
 </body>
