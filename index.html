@@ -73,26 +73,23 @@
             width: 100%;
             padding: 10px;
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
             background: #0f172a;
         }
         .ctrl-btn {
             background: #334155;
             color: white;
             border: none;
-            padding: 14px 5px;
-            border-radius: 6px;
-            font-size: 16px;
+            padding: 16px 5px;
+            border-radius: 8px;
+            font-size: 18px;
             font-weight: bold;
             text-align: center;
             touch-action: manipulation;
         }
-        .ctrl-btn:active {
+        .ctrl-btn:active, .ctrl-btn.active-hold {
             background: #475569;
-        }
-        .btn-shoot {
-            background: #ef4444 !important;
         }
         .hidden {
             display: none !important;
@@ -119,7 +116,7 @@
         <canvas id="canvas" width="450" height="550"></canvas>
         
         <!-- ปุ่มควบคุมสำหรับเกมงู -->
-        <div id="snake-controls" class="controls hidden">
+        <div id="snake-controls" class="controls hidden" style="grid-template-columns: repeat(3, 1fr);">
             <div></div>
             <button class="ctrl-btn" onclick="setSnakeDir('UP')">▲</button>
             <div></div>
@@ -129,7 +126,7 @@
         </div>
 
         <!-- ปุ่มควบคุมสำหรับเกม Tetris -->
-        <div id="tetris-controls" class="controls hidden">
+        <div id="tetris-controls" class="controls hidden" style="grid-template-columns: repeat(3, 1fr);">
             <button class="ctrl-btn" onclick="moveTetris(-1)">◄ ซ้าย</button>
             <button class="ctrl-btn" onclick="rotateTetris()">↻ หมุน</button>
             <button class="ctrl-btn" onclick="moveTetris(1)">ขวา ►</button>
@@ -138,11 +135,14 @@
             <div></div>
         </div>
 
-        <!-- ปุ่มควบคุมสำหรับเกม Space Shooter -->
+        <!-- ปุ่มควบคุมสำหรับเกม Space Shooter (กดค้างเพื่อเลื่อน) -->
         <div id="shooter-controls" class="controls hidden">
-            <button class="ctrl-btn" onclick="moveShooter(-20)">◄ ซ้าย</button>
-            <button class="ctrl-btn btn-shoot" onclick="shootBullet()">🔥 ยิง</button>
-            <button class="ctrl-btn" onclick="moveShooter(20)">ขวา ►</button>
+            <button class="ctrl-btn" 
+                ontouchstart="startShooterMove(-1)" ontouchend="stopShooterMove()" 
+                onmousedown="startShooterMove(-1)" onmouseup="stopShooterMove()">◄ เลื่อนซ้าย</button>
+            <button class="ctrl-btn" 
+                ontouchstart="startShooterMove(1)" ontouchend="stopShooterMove()" 
+                onmousedown="startShooterMove(1)" onmouseup="stopShooterMove()">เลื่อนขวา ►</button>
         </div>
     </div>
 
@@ -510,49 +510,57 @@
         }
 
         // ==========================================
-        // 4. GAME: SPACE SHOOTER (ใหม่)
+        // 4. GAME: SPACE SHOOTER (Smooth & Auto-Shoot)
         // ==========================================
         let shooterPlayer, bullets, enemies, shooterScore, shooterGameOver;
+        let shooterMoveDir = 0;
+        let shootTimer = 0;
 
         function initShooter() {
             if (gameLoopId) cancelAnimationFrame(gameLoopId);
-            shooterPlayer = { x: canvas.width / 2 - 20, y: canvas.height - 50, w: 40, h: 30 };
+            shooterPlayer = { x: canvas.width / 2 - 20, y: canvas.height - 60, w: 40, h: 30, speed: 5 };
             bullets = [];
             enemies = [];
             shooterScore = 0;
             shooterGameOver = false;
+            shooterMoveDir = 0;
             loopShooter();
         }
 
-        function moveShooter(dir) {
-            if (currentGame !== 'shooter' || shooterGameOver) return;
-            shooterPlayer.x += dir;
-            if (shooterPlayer.x < 0) shooterPlayer.x = 0;
-            if (shooterPlayer.x + shooterPlayer.w > canvas.width) shooterPlayer.x = canvas.width - shooterPlayer.w;
+        function startShooterMove(dir) {
+            shooterMoveDir = dir;
         }
 
-        function shootBullet() {
-            if (currentGame !== 'shooter') return;
-            if (shooterGameOver) {
-                initShooter();
-                return;
-            }
-            bullets.push({ x: shooterPlayer.x + shooterPlayer.w / 2 - 3, y: shooterPlayer.y, w: 6, h: 12 });
+        function stopShooterMove() {
+            shooterMoveDir = 0;
         }
 
         function loopShooter() {
             if (currentGame !== 'shooter') return;
 
             if (!shooterGameOver) {
+                // ขยับยานแบบสมูทตามทิศทางที่กดค้าง
+                if (shooterMoveDir !== 0) {
+                    shooterPlayer.x += shooterMoveDir * shooterPlayer.speed;
+                    if (shooterPlayer.x < 0) shooterPlayer.x = 0;
+                    if (shooterPlayer.x + shooterPlayer.w > canvas.width) shooterPlayer.x = canvas.width - shooterPlayer.w;
+                }
+
+                // ยิงกระสุนอัตโนมัติทุกๆ ช่วงเวลา
+                shootTimer++;
+                if (shootTimer % 18 === 0) {
+                    bullets.push({ x: shooterPlayer.x + shooterPlayer.w / 2 - 3, y: shooterPlayer.y, w: 6, h: 14 });
+                }
+
                 // ขยับกระสุน
                 for (let i = bullets.length - 1; i >= 0; i--) {
-                    bullets[i].y -= 7;
+                    bullets[i].y -= 8;
                     if (bullets[i].y < 0) bullets.splice(i, 1);
                 }
 
                 // สุ่มสร้างศัตรู
-                if (Math.random() < 0.03) {
-                    enemies.push({ x: Math.random() * (canvas.width - 35), y: -30, w: 35, h: 35, speed: Math.random() * 2 + 2 });
+                if (Math.random() < 0.035) {
+                    enemies.push({ x: Math.random() * (canvas.width - 35), y: -35, w: 35, h: 35, speed: Math.random() * 2 + 2.5 });
                 }
 
                 // ขยับศัตรู & ตรวจจับการชน
@@ -566,7 +574,7 @@
                         shooterGameOver = true;
                     }
 
-                    // กระสุน ยิงชน ศัตรู
+                    // กระสุนยิงโดนศัตรู
                     for (let j = bullets.length - 1; j >= 0; j--) {
                         let b = bullets[j];
                         if (b.x < e.x + e.w && b.x + b.w > e.x && b.y < e.y + e.h && b.y + b.h > e.y) {
@@ -617,7 +625,7 @@
                 ctx.font = "24px sans-serif";
                 ctx.fillText("Game Over", canvas.width / 2, canvas.height / 2 - 10);
                 ctx.font = "16px sans-serif";
-                ctx.fillText("กดปุ่มยิงเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2 + 20);
+                ctx.fillText("สลับเกมเพื่อเริ่มใหม่", canvas.width / 2, canvas.height / 2 + 20);
                 ctx.textAlign = "left";
             } else {
                 gameLoopId = requestAnimationFrame(loopShooter);
