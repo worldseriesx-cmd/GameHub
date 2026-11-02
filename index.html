@@ -3,1055 +3,428 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CyberRetro 8-in-1 Arcade Hub</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>CyberRetro Arcade Portal</title>
   <style>
     :root {
-      --bg: #090a10;
-      --card-bg: #141724;
+      --bg: #07080f;
+      --card-bg: rgba(18, 22, 36, 0.85);
+      --card-border: rgba(0, 243, 255, 0.2);
       --cyan: #00f3ff;
       --pink: #ff0055;
       --yellow: #ffe600;
       --green: #00ff66;
+      --purple: #9d4edd;
     }
+
     * {
       box-sizing: border-box;
       user-select: none;
       -webkit-user-select: none;
-      touch-action: none;
+      -webkit-touch-callout: none;
       margin: 0;
       padding: 0;
     }
+
     body {
-      background: var(--bg);
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(ellipse at 50% 0%, rgba(0, 243, 255, 0.12) 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 100%, rgba(255, 0, 85, 0.1) 0%, transparent 50%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
       color: #fff;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
-      width: 100vw;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow-x: hidden;
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
     }
 
-    /* Scanline effect */
+    /* Scanlines */
     .scanlines {
       position: fixed;
       inset: 0;
       pointer-events: none;
-      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
       background-size: 100% 4px;
-      z-index: 100;
-      opacity: 0.6;
+      z-index: 999;
+      opacity: 0.7;
     }
 
-    /* Top Bar */
+    /* Header */
     header {
-      height: 48px;
-      background: rgba(20, 23, 36, 0.95);
-      border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+      padding: calc(16px + env(safe-area-inset-top)) 24px 16px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(0, 243, 255, 0.15);
+      background: rgba(7, 8, 15, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand-group {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .brand-title {
+      font-size: 1.3rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      text-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      padding: 0 16px;
-      z-index: 10;
+      gap: 8px;
     }
-    .brand {
-      font-weight: 900;
-      font-size: 1.1rem;
-      color: var(--cyan);
-      text-transform: uppercase;
+
+    .brand-sub {
+      font-size: 0.7rem;
+      color: #7d88aa;
       letter-spacing: 1px;
-      text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
-    }
-    .hud {
-      display: flex;
-      gap: 12px;
-      font-size: 0.9rem;
       font-family: monospace;
-      color: var(--yellow);
     }
-    .btn-top {
-      background: #23283e;
-      border: 1px solid #3d466e;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 6px;
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .tool-btn {
+      background: #141829;
+      border: 1px solid #2a3356;
+      color: #cbd5e1;
+      padding: 8px 12px;
+      border-radius: 8px;
       font-size: 0.8rem;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      touch-action: manipulation;
+    }
+
+    .tool-btn:active {
+      transform: scale(0.95);
+      border-color: var(--cyan);
     }
 
     /* Main Container */
-    #viewport {
+    main {
       flex: 1;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-
-    /* Game Launcher Menu */
-    #menu-screen {
-      position: absolute;
-      inset: 0;
-      overflow-y: auto;
-      padding: 20px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 16px;
-      align-content: start;
-      z-index: 20;
-      background: var(--bg);
-    }
-    .game-card {
-      background: var(--card-bg);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px;
+      max-width: 1100px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 20px;
       display: flex;
       flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 0.75rem;
+      font-family: monospace;
+      color: var(--yellow);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      display: flex;
       align-items: center;
-      text-align: center;
       gap: 8px;
-      cursor: pointer;
-      transition: transform 0.15s, border-color 0.15s;
     }
+    .section-label::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: rgba(255, 230, 0, 0.2);
+    }
+
+    /* Games Grid */
+    .games-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    /* Game Card Link */
+    .game-card {
+      text-decoration: none;
+      color: inherit;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+      touch-action: manipulation;
+      transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .game-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--theme-color, var(--cyan)), transparent);
+    }
+
     .game-card:active {
-      transform: scale(0.96);
-      border-color: var(--cyan);
+      transform: scale(0.97);
+      border-color: var(--theme-color, var(--cyan));
+      box-shadow: 0 0 25px var(--glow-color, rgba(0, 243, 255, 0.35));
     }
-    .card-icon {
-      font-size: 2.2rem;
+
+    .card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
     }
-    .card-title {
-      font-size: 0.95rem;
-      font-weight: bold;
+
+    .game-icon-box {
+      width: 54px;
+      height: 54px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
     }
-    .card-badge {
+
+    .badge {
       font-size: 0.65rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: rgba(0, 243, 255, 0.15);
-      color: var(--cyan);
-      font-weight: 600;
-    }
-    .badge-contra {
-      background: rgba(255, 0, 85, 0.2);
-      color: var(--pink);
-    }
-
-    /* Canvas Area */
-    canvas {
-      display: none;
-      background: #000;
-      box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
-      max-width: 100%;
-      max-height: 100%;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--theme-color, var(--cyan));
+      text-transform: uppercase;
+      font-family: monospace;
     }
 
-    /* Touch Controls Dock */
-    #controls {
-      display: none;
-      height: 180px;
-      background: rgba(12, 14, 24, 0.95);
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding: 10px 24px;
+    .card-mid {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .game-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+
+    .game-desc {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      line-height: 1.4;
+    }
+
+    .card-bot {
+      display: flex;
       justify-content: space-between;
       align-items: center;
-      position: relative;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 12px;
+      font-size: 0.75rem;
+      color: #64748b;
+      font-family: monospace;
     }
-    .dpad-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 48px);
-      grid-template-rows: repeat(3, 48px);
-      gap: 4px;
-    }
-    .dbtn {
-      background: #1c2137;
-      border: 1px solid #333c63;
-      color: #fff;
-      font-size: 1.1rem;
-      border-radius: 8px;
+
+    .play-pill {
       display: flex;
       align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px #0f1220;
+      gap: 6px;
+      color: var(--theme-color, var(--cyan));
+      font-weight: 700;
     }
-    .dbtn:active, .dbtn.active {
-      background: var(--cyan);
-      color: #000;
-      transform: translateY(2px);
-      box-shadow: 0 2px #0f1220;
+
+    /* Distinct Themes */
+    .theme-contra {
+      --theme-color: var(--pink);
+      --glow-color: rgba(255, 0, 85, 0.4);
     }
-    .action-group {
-      display: flex;
-      gap: 16px;
-      align-items: center;
+    .theme-kungfu {
+      --theme-color: var(--yellow);
+      --glow-color: rgba(255, 230, 0, 0.4);
     }
-    .abtn {
-      width: 68px;
-      height: 68px;
-      border-radius: 50%;
-      background: #252a45;
-      border: 2px solid;
-      font-size: 1.2rem;
-      font-weight: 900;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 5px #111422;
+    .theme-downwell {
+      --theme-color: var(--cyan);
+      --glow-color: rgba(0, 243, 255, 0.4);
     }
-    .btn-a {
-      border-color: var(--green);
+    .theme-survivor {
+      --theme-color: var(--purple);
+      --glow-color: rgba(157, 78, 221, 0.45);
     }
-    .btn-b {
-      border-color: var(--pink);
+    .theme-breaker {
+      --theme-color: var(--green);
+      --glow-color: rgba(0, 255, 102, 0.4);
     }
-    .abtn:active, .abtn.active {
-      transform: translateY(3px);
-      box-shadow: 0 2px #111422;
-    }
-    .btn-a:active, .btn-a.active { background: var(--green); color: #000; }
-    .btn-b:active, .btn-b.active { background: var(--pink); color: #000; }
   </style>
 </head>
 <body>
-  <div class="scanlines"></div>
+  <div class="scanlines" id="scanlines"></div>
 
   <header>
-    <div class="brand" id="hub-title">⚡ CyberRetro Hub</div>
-    <div class="hud" id="hud-area">
-      <span id="score-text">SCORE: 0000</span>
+    <div class="brand-group">
+      <div class="brand-title">⚡ CyberRetro Hub</div>
+      <div class="brand-sub">5-IN-1 PORTABLE ARCADE SYSTEM</div>
     </div>
-    <button class="btn-top" id="btn-back" style="display:none;" onclick="returnToMenu()">🔙 MENU</button>
+    <div class="header-actions">
+      <button class="tool-btn" id="btn-crt" onclick="toggleCRT()">📺 CRT</button>
+      <button class="tool-btn" id="btn-sound" onclick="toggleSound()">🔊 SFX</button>
+    </div>
   </header>
 
-  <div id="viewport">
-    <!-- Menu Screen with 8 Games -->
-    <div id="menu-screen">
-      <div class="game-card" onclick="startGame('contra')">
-        <div class="card-icon">🪖</div>
-        <div class="card-title">Neo Contra</div>
-        <div class="card-badge badge-contra">RUN & GUN</div>
-      </div>
-      <div class="game-card" onclick="startGame('defender')">
-        <div class="card-icon">🚀</div>
-        <div class="card-title">Space Defender</div>
-        <div class="card-badge">SHMUP</div>
-      </div>
-      <div class="game-card" onclick="startGame('breakout')">
-        <div class="card-icon">🧱</div>
-        <div class="card-title">Neon Breakout</div>
-        <div class="card-badge">ARCADE</div>
-      </div>
-      <div class="game-card" onclick="startGame('snake')">
-        <div class="card-icon">🐍</div>
-        <div class="card-title">Cyber Snake</div>
-        <div class="card-badge">CLASSIC</div>
-      </div>
-      <div class="game-card" onclick="startGame('flappy')">
-        <div class="card-icon">🛸</div>
-        <div class="card-title">Flappy Pixel</div>
-        <div class="card-badge">REFLEX</div>
-      </div>
-      <div class="game-card" onclick="startGame('tetris')">
-        <div class="card-icon">🧩</div>
-        <div class="card-title">Neon Tetrix</div>
-        <div class="card-badge">PUZZLE</div>
-      </div>
-      <div class="game-card" onclick="startGame('racer')">
-        <div class="card-icon">🏎️</div>
-        <div class="card-title">Highway Racer</div>
-        <div class="card-badge">SPEED</div>
-      </div>
-      <div class="game-card" onclick="startGame('asteroids')">
-        <div class="card-icon">☄️</div>
-        <div class="card-title">Asteroids 360</div>
-        <div class="card-badge">SPACE</div>
-      </div>
-    </div>
+  <main>
+    <div class="section-label">SELECT COIN OPERATED CARTRIDGE</div>
 
-    <!-- Active Canvas -->
-    <canvas id="gameCanvas" width="480" height="320"></canvas>
-  </div>
+    <div class="games-grid">
+      <!-- 1. Neo Contra -->
+      <a href="contra.html" class="game-card theme-contra" onclick="playBeep()">
+        <div class="card-top">
+          <div class="game-icon-box">🪖</div>
+          <div class="badge">RUN & GUN</div>
+        </div>
+        <div class="card-mid">
+          <div class="game-title">Neo Contra: Overdrive</div>
+          <div class="game-desc">แคมเปญ 3 ด่านเต็มสูบ ปืน Spread Gun ห้าแฉก ด่านน้ำตก และปุ่มรับ 30 ชีวิต</div>
+        </div>
+        <div class="card-bot">
+          <span>STAGE: 3 LEVELS</span>
+          <div class="play-pill">INSERT COIN ▶</div>
+        </div>
+      </a>
 
-  <!-- Touch Controls -->
-  <div id="controls">
-    <div class="dpad-grid">
-      <div></div>
-      <button class="dbtn" data-key="up">▲</button>
-      <div></div>
-      <button class="dbtn" data-key="left">◀</button>
-      <div></div>
-      <button class="dbtn" data-key="right">▶</button>
-      <div></div>
-      <button class="dbtn" data-key="down">▼</button>
-      <div></div>
+      <!-- 2. Kung Fu Blitz -->
+      <a href="kungfu.html" class="game-card theme-kungfu" onclick="playBeep()">
+        <div class="card-top">
+          <div class="game-icon-box">🥋</div>
+          <div class="badge">RHYTHM BRAWLER</div>
+        </div>
+        <div class="card-mid">
+          <div class="game-title">Kung Fu Blitz</div>
+          <div class="game-desc">แตะซ้าย-ขวากวาดล้างศัตรูความเร็วสูง ฟาดหมัดคอมโบห้ามกดว่าว</div>
+        </div>
+        <div class="card-bot">
+          <span>SPEED: EXTREME</span>
+          <div class="play-pill">INSERT COIN ▶</div>
+        </div>
+      </a>
+
+      <!-- 3. Neon Downwell -->
+      <a href="downwell.html" class="game-card theme-downwell" onclick="playBeep()">
+        <div class="card-top">
+          <div class="game-icon-box">🕳️</div>
+          <div class="badge">VERTICAL DESCENT</div>
+        </div>
+        <div class="card-mid">
+          <div class="game-title">Neon Downwell</div>
+          <div class="game-desc">ดิ่งสู่นรกท่อลึกไม่รู้จบ สวมรองเท้า Gunboots ยิงกดพื้นและเหยียบหัวรีโหลด</div>
+        </div>
+        <div class="card-bot">
+          <span>DEPTH: INFINITE</span>
+          <div class="play-pill">INSERT COIN ▶</div>
+        </div>
+      </a>
+
+      <!-- 4. Cyber Survivor -->
+      <a href="survivor.html" class="game-card theme-survivor" onclick="playBeep()">
+        <div class="card-top">
+          <div class="game-icon-box">🩸</div>
+          <div class="badge">SURVIVOR SWARM</div>
+        </div>
+        <div class="card-mid">
+          <div class="game-title">Cyber Survivor</div>
+          <div class="game-desc">ล้างบางฝูงมอนสเตอร์นีออนนับร้อย เก็บ EXP เม็ดเพชร อัปเกรดการ์ดอาวุธรอบตัว</div>
+        </div>
+        <div class="card-bot">
+          <span>ENEMIES: 100+</span>
+          <div class="play-pill">INSERT COIN ▶</div>
+        </div>
+      </a>
+
+      <!-- 5. Neon Breaker -->
+      <a href="breakout.html" class="game-card theme-breaker" onclick="playBeep()">
+        <div class="card-top">
+          <div class="game-icon-box">⚡</div>
+          <div class="badge">OVERCHARGED</div>
+        </div>
+        <div class="card-mid">
+          <div class="game-title">Neon Breaker</div>
+          <div class="game-desc">เด้งบอลทำลายอิฐนีออน บล็อกระเบิด TNT ลูกโซ่ และปืนเลเซอร์คู่ติดไม้ตี</div>
+        </div>
+        <div class="card-bot">
+          <span>MODES: OVERDRIVE</span>
+          <div class="play-pill">INSERT COIN ▶</div>
+        </div>
+      </a>
     </div>
-    <div class="action-group">
-      <button class="abtn btn-b" data-key="b">B</button>
-      <button class="abtn btn-a" data-key="a">A</button>
-    </div>
-  </div>
+  </main>
 
   <script>
-    // --- Audio Synthesizer (Zero External Assets) ---
-    const AudioEngine = {
-      ctx: null,
-      init() {
-        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-      },
-      playTone(freq, type, duration, endFreq = null) {
-        if (!this.ctx) return;
-        try {
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-          osc.type = type;
-          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
-          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + duration);
-          gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
-          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + duration);
-          osc.connect(gain);
-          gain.connect(this.ctx.destination);
-          osc.start();
-          osc.stop(this.ctx.currentTime + duration);
-        } catch(e){}
-      },
-      laser() { this.playTone(850, 'square', 0.1, 150); },
-      spread() { this.playTone(600, 'sawtooth', 0.12, 100); },
-      jump() { this.playTone(180, 'sine', 0.15, 520); },
-      hit() { this.playTone(120, 'sawtooth', 0.1, 40); },
-      boom() { this.playTone(100, 'square', 0.35, 20); },
-      powerup() { this.playTone(300, 'triangle', 0.25, 900); }
-    };
+    // Web Audio API Synthesizer (No external assets)
+    let audioCtx = null;
+    let sfxEnabled = true;
 
-    // --- Inputs Manager ---
-    const Input = {
-      up: false, down: false, left: false, right: false,
-      a: false, b: false,
-      reset() { this.up = this.down = this.left = this.right = this.a = this.b = false; }
-    };
-
-    function bindTouchButton(el, key) {
-      const setKey = (val) => {
-        Input[key] = val;
-        AudioEngine.init();
-        if (val) el.classList.add('active'); else el.classList.remove('active');
-      };
-      el.addEventListener('touchstart', (e) => { e.preventDefault(); setKey(true); });
-      el.addEventListener('touchend', (e) => { e.preventDefault(); setKey(false); });
-      el.addEventListener('touchcancel', (e) => { e.preventDefault(); setKey(false); });
-      el.addEventListener('mousedown', (e) => { e.preventDefault(); setKey(true); });
-      el.addEventListener('mouseup', (e) => { e.preventDefault(); setKey(false); });
+    function initAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
     }
 
-    document.querySelectorAll('[data-key]').forEach(btn => {
-      bindTouchButton(btn, btn.getAttribute('data-key'));
-    });
-
-    window.addEventListener('keydown', (e) => {
-      AudioEngine.init();
-      if (e.code === 'ArrowUp' || e.key === 'w') Input.up = true;
-      if (e.code === 'ArrowDown' || e.key === 's') Input.down = true;
-      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = true;
-      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = true;
-      if (e.code === 'Space' || e.key === 'k') Input.a = true;
-      if (e.key === 'j' || e.key === 'z') Input.b = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'ArrowUp' || e.key === 'w') Input.up = false;
-      if (e.code === 'ArrowDown' || e.key === 's') Input.down = false;
-      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = false;
-      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = false;
-      if (e.code === 'Space' || e.key === 'k') Input.a = false;
-      if (e.key === 'j' || e.key === 'z') Input.b = false;
-    });
-
-    // --- Canvas & Architecture ---
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let activeGame = null;
-    let animId = null;
-    let score = 0;
-
-    function resizeCanvas() {
-      const viewport = document.getElementById('viewport');
-      const w = viewport.clientWidth;
-      const h = viewport.clientHeight;
-      const aspect = 480 / 320;
-      let targetW = w;
-      let targetH = w / aspect;
-      if (targetH > h) {
-        targetH = h;
-        targetW = h * aspect;
-      }
-      canvas.style.width = `${targetW}px`;
-      canvas.style.height = `${targetH}px`;
-    }
-    window.addEventListener('resize', resizeCanvas);
-
-    function returnToMenu() {
-      if (animId) cancelAnimationFrame(animId);
-      activeGame = null;
-      Input.reset();
-      canvas.style.display = 'none';
-      document.getElementById('controls').style.display = 'none';
-      document.getElementById('btn-back').style.display = 'none';
-      document.getElementById('menu-screen').style.display = 'grid';
-      document.getElementById('hub-title').innerText = "⚡ CyberRetro Hub";
-      document.getElementById('score-text').innerText = "SCORE: 0000";
+    function playBeep() {
+      if (!sfxEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.08);
+      } catch(e) {}
     }
 
-    function startGame(id) {
-      AudioEngine.init();
-      Input.reset();
-      score = 0;
-      document.getElementById('menu-screen').style.display = 'none';
-      document.getElementById('btn-back').style.display = 'block';
-      canvas.style.display = 'block';
-      document.getElementById('controls').style.display = 'flex';
-      resizeCanvas();
-
-      if (id === 'contra') activeGame = new NeoContraGame();
-      else if (id === 'defender') activeGame = new DefenderGame();
-      else if (id === 'breakout') activeGame = new BreakoutGame();
-      else if (id === 'snake') activeGame = new SnakeGame();
-      else if (id === 'flappy') activeGame = new FlappyGame();
-      else if (id === 'tetris') activeGame = new TetrisGame();
-      else if (id === 'racer') activeGame = new RacerGame();
-      else if (id === 'asteroids') activeGame = new AsteroidsGame();
-
-      document.getElementById('hub-title').innerText = activeGame.title;
-      gameLoop();
+    function toggleCRT() {
+      const scan = document.getElementById('scanlines');
+      scan.style.display = (scan.style.display === 'none') ? 'block' : 'none';
+      playBeep();
     }
 
-    function gameLoop() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      if (activeGame) {
-        activeGame.update();
-        activeGame.draw(ctx);
-        document.getElementById('score-text').innerText = `SCORE: ${String(score).padStart(4, '0')}`;
-        animId = requestAnimationFrame(gameLoop);
-      }
+    function toggleSound() {
+      sfxEnabled = !sfxEnabled;
+      const btn = document.getElementById('btn-sound');
+      btn.innerText = sfxEnabled ? '🔊 SFX' : '🔇 MUTE';
+      if (sfxEnabled) playBeep();
     }
 
-    // ==========================================
-    // 1. NEO CONTRA (Run & Gun Platformer)
-    // ==========================================
-    class NeoContraGame {
-      constructor() {
-        this.title = "🪖 Neo Contra";
-        this.p = { x: 50, y: 200, vx: 0, vy: 0, w: 16, h: 26, grounded: false, facing: 1, crouch: false, aimUp: false, rolling: false, gun: 'N', shootCd: 0 };
-        this.cameraX = 0;
-        this.bullets = [];
-        this.eBullets = [];
-        this.enemies = [];
-        this.capsules = [{ x: 280, y: 120, vx: -1.2, alive: true }];
-        this.platforms = [
-          { x: 0, y: 280, w: 1400, h: 40 },
-          { x: 120, y: 220, w: 90, h: 10 },
-          { x: 250, y: 180, w: 100, h: 10 },
-          { x: 400, y: 210, w: 90, h: 10 },
-          { x: 550, y: 170, w: 120, h: 10 },
-          { x: 740, y: 220, w: 100, h: 10 },
-          { x: 900, y: 180, w: 110, h: 10 },
-          { x: 1080, y: 200, w: 250, h: 15 }
-        ];
-        this.boss = { x: 1280, y: 150, hp: 45, maxHp: 45, coreY: 190, pulse: 0 };
-        this.spawnTimer = 0;
-      }
-
-      update() {
-        const p = this.p;
-        p.crouch = Input.down && p.grounded;
-        p.aimUp = Input.up;
-
-        // Run
-        if (!p.crouch) {
-          if (Input.left) { p.vx = -2.8; p.facing = -1; }
-          else if (Input.right) { p.vx = 2.8; p.facing = 1; }
-          else { p.vx = 0; }
-        } else {
-          p.vx = 0;
-        }
-
-        // Jump & Drop through platforms
-        if (Input.a && p.grounded) {
-          if (Input.down && p.y < 250) {
-            p.y += 4;
-            p.grounded = false;
-          } else {
-            p.vy = -6.8;
-            p.grounded = false;
-            p.rolling = true;
-            AudioEngine.jump();
-          }
-        }
-
-        // Gravity & Integration
-        p.vy += 0.32;
-        p.x += p.vx;
-        p.y += p.vy;
-
-        // Platform Collisions
-        p.grounded = false;
-        for (let plat of this.platforms) {
-          if (p.x + p.w/2 > plat.x && p.x - p.w/2 < plat.x + plat.w) {
-            if (p.y + p.h/2 >= plat.y && p.y + p.h/2 <= plat.y + 12 && p.vy >= 0) {
-              p.y = plat.y - p.h/2;
-              p.vy = 0;
-              p.grounded = true;
-              p.rolling = false;
-            }
-          }
-        }
-
-        // Camera scroll
-        if (p.x - this.cameraX > 220) this.cameraX = p.x - 220;
-        if (p.x < this.cameraX + 16) p.x = this.cameraX + 16;
-
-        // Shooting (Button B)
-        p.shootCd = Math.max(0, p.shootCd - 1);
-        if (Input.b && p.shootCd === 0) {
-          p.shootCd = p.gun === 'M' ? 5 : 12;
-          let dirX = p.facing;
-          let dirY = 0;
-          if (p.aimUp) { dirX = Input.left ? -0.7 : (Input.right ? 0.7 : 0); dirY = -1; }
-          else if (p.crouch && !p.grounded) { dirY = 1; }
-
-          if (p.gun === 'S') {
-            [-0.3, -0.15, 0, 0.15, 0.3].forEach(angle => {
-              this.bullets.push({ x: p.x, y: p.y - 4, vx: (dirX || 1) * 6 + angle*2, vy: (dirY * 6) + angle*6 });
-            });
-            AudioEngine.spread();
-          } else {
-            this.bullets.push({ x: p.x, y: p.y - 4, vx: (dirX || p.facing) * 7, vy: dirY * 7 });
-            AudioEngine.laser();
-          }
-        }
-
-        // Update Bullets
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-          let b = this.bullets[i];
-          b.x += b.vx;
-          b.y += b.vy;
-          if (b.x < this.cameraX || b.x > this.cameraX + 500 || b.y < 0 || b.y > 320) {
-            this.bullets.splice(i, 1);
-          }
-        }
-
-        // Spawning Runners
-        this.spawnTimer++;
-        if (this.spawnTimer % 110 === 0 && p.x < 1150) {
-          this.enemies.push({ x: this.cameraX + 490, y: 260, vx: -2.2, hp: 1 });
-        }
-
-        // Update Enemies
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
-          let e = this.enemies[i];
-          e.x += e.vx;
-          if (e.x < this.cameraX - 40) { this.enemies.splice(i, 1); continue; }
-
-          // Bullet hits enemy
-          for (let bi = this.bullets.length - 1; bi >= 0; bi--) {
-            let b = this.bullets[bi];
-            if (Math.hypot(b.x - e.x, b.y - e.y) < 18) {
-              e.hp--;
-              this.bullets.splice(bi, 1);
-              if (e.hp <= 0) {
-                AudioEngine.boom();
-                score += 100;
-                this.enemies.splice(i, 1);
-                break;
-              }
-            }
-          }
-        }
-
-        // Flying Capsule
-        for (let cap of this.capsules) {
-          if (cap.alive) {
-            cap.x += cap.vx;
-            for (let bi = this.bullets.length - 1; bi >= 0; bi--) {
-              let b = this.bullets[bi];
-              if (Math.hypot(b.x - cap.x, b.y - cap.y) < 20) {
-                cap.alive = false;
-                this.bullets.splice(bi, 1);
-                p.gun = 'S'; // Upgrade to Spread Gun
-                AudioEngine.powerup();
-                score += 250;
-              }
-            }
-          }
-        }
-
-        // Boss Logic
-        if (p.x > 1000 && this.boss.hp > 0) {
-          this.boss.pulse += 0.05;
-          if (Math.random() < 0.03) {
-            this.eBullets.push({ x: this.boss.x, y: this.boss.coreY, vx: -3.5, vy: (Math.random() - 0.5) * 2 });
-          }
-          for (let bi = this.bullets.length - 1; bi >= 0; bi--) {
-            let b = this.bullets[bi];
-            if (b.x > this.boss.x && b.x < this.boss.x + 40 && Math.abs(b.y - this.boss.coreY) < 30) {
-              this.boss.hp--;
-              this.bullets.splice(bi, 1);
-              AudioEngine.hit();
-              if (this.boss.hp <= 0) {
-                score += 5000;
-                AudioEngine.boom();
-              }
-            }
-          }
-        }
-
-        // Enemy bullets
-        for (let i = this.eBullets.length - 1; i >= 0; i--) {
-          let eb = this.eBullets[i];
-          eb.x += eb.vx;
-          eb.y += eb.vy;
-          if (eb.x < this.cameraX - 20) this.eBullets.splice(i, 1);
-        }
-      }
-
-      draw(c) {
-        c.save();
-        c.translate(-this.cameraX, 0);
-
-        // Background Jungle / Bunker
-        c.fillStyle = '#06131c';
-        c.fillRect(this.cameraX, 0, 480, 320);
-        c.fillStyle = '#0f382a';
-        for (let i = 0; i < 8; i++) {
-          c.fillRect((i * 180) - (this.cameraX * 0.3) % 180, 80, 70, 200);
-        }
-
-        // Platforms
-        c.fillStyle = '#22384a';
-        for (let plat of this.platforms) {
-          c.fillRect(plat.x, plat.y, plat.w, plat.h);
-          c.fillStyle = '#00f3ff';
-          c.fillRect(plat.x, plat.y, plat.w, 2); // Neon ledge
-          c.fillStyle = '#22384a';
-        }
-
-        // Flying Capsule
-        for (let cap of this.capsules) {
-          if (cap.alive) {
-            c.fillStyle = '#ffe600';
-            c.beginPath();
-            c.arc(cap.x, cap.y, 9, 0, Math.PI*2);
-            c.fill();
-            c.fillStyle = '#ff0055';
-            c.font = 'bold 9px monospace';
-            c.fillText('S', cap.x - 3, cap.y + 3);
-          }
-        }
-
-        // Enemies
-        c.fillStyle = '#ff3b30';
-        for (let e of this.enemies) {
-          c.fillRect(e.x - 8, e.y - 12, 16, 24);
-          c.fillStyle = '#fff';
-          c.fillRect(e.x + (e.vx > 0 ? 3 : -7), e.y - 9, 4, 4);
-          c.fillStyle = '#ff3b30';
-        }
-
-        // Boss Fortress
-        if (this.boss.hp > 0) {
-          c.fillStyle = '#313b52';
-          c.fillRect(this.boss.x, 100, 60, 180);
-          // Glowing Alien Core
-          c.fillStyle = `rgba(255, 0, 85, ${0.6 + Math.sin(this.boss.pulse) * 0.3})`;
-          c.beginPath();
-          c.arc(this.boss.x + 15, this.boss.coreY, 16, 0, Math.PI*2);
-          c.fill();
-          // Boss HP Bar
-          c.fillStyle = 'rgba(0,0,0,0.5)';
-          c.fillRect(this.boss.x - 10, 85, 70, 8);
-          c.fillStyle = '#ff0055';
-          c.fillRect(this.boss.x - 10, 85, (this.boss.hp / this.boss.maxHp) * 70, 8);
-        }
-
-        // Bullets
-        c.fillStyle = '#ffe600';
-        for (let b of this.bullets) {
-          c.beginPath();
-          c.arc(b.x, b.y, this.p.gun === 'S' ? 3.5 : 2.5, 0, Math.PI*2);
-          c.fill();
-        }
-        c.fillStyle = '#ff0055';
-        for (let eb of this.eBullets) {
-          c.beginPath();
-          c.arc(eb.x, eb.y, 3, 0, Math.PI*2);
-          c.fill();
-        }
-
-        // Player (Bill / Neo Commando)
-        const p = this.p;
-        c.fillStyle = '#00f3ff';
-        if (p.rolling) {
-          c.beginPath();
-          c.arc(p.x, p.y, 9, 0, Math.PI*2);
-          c.fill();
-        } else if (p.crouch) {
-          c.fillRect(p.x - 10, p.y + 2, 20, 10); // Prone
-        } else {
-          // Standing / Running
-          c.fillRect(p.x - 6, p.y - 12, 12, 24);
-          // Red Headband
-          c.fillStyle = '#ff0055';
-          c.fillRect(p.x - 7, p.y - 12, 14, 4);
-          // Rifle barrel
-          c.fillStyle = '#fff';
-          if (p.aimUp) c.fillRect(p.x + (p.facing * 3), p.y - 20, 3, 10);
-          else c.fillRect(p.x + (p.facing * 5), p.y - 5, p.facing * 10, 3);
-        }
-
-        c.restore();
-
-        // UI Gun info
-        c.fillStyle = '#ffe600';
-        c.font = 'bold 12px monospace';
-        c.fillText(`WEAPON: [${this.p.gun}] SPREAD GUN`, 16, 26);
-      }
-    }
-
-    // ==========================================
-    // 2. SPACE DEFENDER (Shmup)
-    // ==========================================
-    class DefenderGame {
-      constructor() {
-        this.title = "🚀 Space Defender";
-        this.p = { x: 240, y: 280, w: 20, h: 20 };
-        this.bullets = [];
-        this.aliens = [];
-        this.timer = 0;
-      }
-      update() {
-        if (Input.left) this.p.x -= 4;
-        if (Input.right) this.p.x += 4;
-        this.p.x = Math.max(16, Math.min(464, this.p.x));
-        this.timer++;
-        if (Input.b && this.timer % 8 === 0) {
-          this.bullets.push({ x: this.p.x, y: this.p.y - 10 });
-          AudioEngine.laser();
-        }
-        if (this.timer % 40 === 0) {
-          this.aliens.push({ x: 30 + Math.random() * 420, y: -10, vy: 1.5 });
-        }
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-          this.bullets[i].y -= 6;
-          if (this.bullets[i].y < 0) this.bullets.splice(i, 1);
-        }
-        for (let i = this.aliens.length - 1; i >= 0; i--) {
-          let a = this.aliens[i];
-          a.y += a.vy;
-          for (let bi = this.bullets.length - 1; bi >= 0; bi--) {
-            if (Math.hypot(this.bullets[bi].x - a.x, this.bullets[bi].y - a.y) < 16) {
-              this.bullets.splice(bi, 1);
-              this.aliens.splice(i, 1);
-              score += 50;
-              AudioEngine.boom();
-              break;
-            }
-          }
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#060714';
-        c.fillRect(0, 0, 480, 320);
-        // Player Ship
-        c.fillStyle = '#00f3ff';
-        c.beginPath();
-        c.moveTo(this.p.x, this.p.y - 12);
-        c.lineTo(this.p.x - 12, this.p.y + 10);
-        c.lineTo(this.p.x + 12, this.p.y + 10);
-        c.fill();
-        // Bullets
-        c.fillStyle = '#ffe600';
-        for (let b of this.bullets) c.fillRect(b.x - 2, b.y - 6, 4, 10);
-        // Aliens
-        c.fillStyle = '#ff0055';
-        for (let a of this.aliens) {
-          c.fillRect(a.x - 10, a.y - 8, 20, 16);
-        }
-      }
-    }
-
-    // ==========================================
-    // 3. NEON BREAKOUT
-    // ==========================================
-    class BreakoutGame {
-      constructor() {
-        this.title = "🧱 Neon Breakout";
-        this.paddle = { x: 200, w: 70, h: 10 };
-        this.ball = { x: 240, y: 200, vx: 3, vy: -3, r: 5 };
-        this.bricks = [];
-        for (let r = 0; r < 4; r++) {
-          for (let col = 0; col < 8; col++) {
-            this.bricks.push({ x: 35 + col * 52, y: 40 + r * 18, w: 46, h: 12, alive: true });
-          }
-        }
-      }
-      update() {
-        if (Input.left) this.paddle.x -= 5;
-        if (Input.right) this.paddle.x += 5;
-        this.paddle.x = Math.max(10, Math.min(400, this.paddle.x));
-        const b = this.ball;
-        b.x += b.vx;
-        b.y += b.vy;
-        if (b.x < 5 || b.x > 475) { b.vx *= -1; AudioEngine.hit(); }
-        if (b.y < 5) { b.vy *= -1; AudioEngine.hit(); }
-        // Paddle hit
-        if (b.y + b.r >= 290 && b.x >= this.paddle.x && b.x <= this.paddle.x + this.paddle.w) {
-          b.vy = -Math.abs(b.vy);
-          b.vx = ((b.x - (this.paddle.x + this.paddle.w/2)) / (this.paddle.w/2)) * 4.5;
-          AudioEngine.jump();
-        }
-        // Brick hit
-        for (let br of this.bricks) {
-          if (br.alive && b.x > br.x && b.x < br.x + br.w && b.y > br.y && b.y < br.y + br.h) {
-            br.alive = false;
-            b.vy *= -1;
-            score += 30;
-            AudioEngine.hit();
-            break;
-          }
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#080812';
-        c.fillRect(0, 0, 480, 320);
-        c.fillStyle = '#00f3ff';
-        c.fillRect(this.paddle.x, 290, this.paddle.w, this.paddle.h);
-        c.fillStyle = '#fff';
-        c.beginPath();
-        c.arc(this.ball.x, this.ball.y, this.ball.r, 0, Math.PI*2);
-        c.fill();
-        for (let br of this.bricks) {
-          if (br.alive) {
-            c.fillStyle = '#ff0055';
-            c.fillRect(br.x, br.y, br.w, br.h);
-          }
-        }
-      }
-    }
-
-    // ==========================================
-    // 4. CYBER SNAKE
-    // ==========================================
-    class SnakeGame {
-      constructor() {
-        this.title = "🐍 Cyber Snake";
-        this.snake = [{ x: 8, y: 8 }, { x: 7, y: 8 }, { x: 6, y: 8 }];
-        this.dir = { x: 1, y: 0 };
-        this.nextDir = { x: 1, y: 0 };
-        this.food = { x: 14, y: 10 };
-        this.step = 0;
-      }
-      update() {
-        if (Input.up && this.dir.y === 0) this.nextDir = { x: 0, y: -1 };
-        if (Input.down && this.dir.y === 0) this.nextDir = { x: 0, y: 1 };
-        if (Input.left && this.dir.x === 0) this.nextDir = { x: -1, y: 0 };
-        if (Input.right && this.dir.x === 0) this.nextDir = { x: 1, y: 0 };
-        if (++this.step % 7 !== 0) return;
-        this.dir = this.nextDir;
-        let head = { x: this.snake[0].x + this.dir.x, y: this.snake[0].y + this.dir.y };
-        if (head.x < 0) head.x = 23; if (head.x > 23) head.x = 0;
-        if (head.y < 0) head.y = 15; if (head.y > 15) head.y = 0;
-        this.snake.unshift(head);
-        if (head.x === this.food.x && head.y === this.food.y) {
-          score += 20;
-          AudioEngine.powerup();
-          this.food = { x: Math.floor(Math.random() * 23), y: Math.floor(Math.random() * 15) };
-        } else {
-          this.snake.pop();
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#050a0e';
-        c.fillRect(0, 0, 480, 320);
-        c.fillStyle = '#00ff66';
-        for (let s of this.snake) c.fillRect(s.x * 20 + 1, s.y * 20 + 1, 18, 18);
-        c.fillStyle = '#ffe600';
-        c.fillRect(this.food.x * 20 + 3, this.food.y * 20 + 3, 14, 14);
-      }
-    }
-
-    // ==========================================
-    // 5. FLAPPY PIXEL
-    // ==========================================
-    class FlappyGame {
-      constructor() {
-        this.title = "🛸 Flappy Pixel";
-        this.y = 150;
-        this.vy = 0;
-        this.pipes = [{ x: 360, top: 90, gap: 85 }];
-        this.cooldown = false;
-      }
-      update() {
-        if ((Input.a || Input.up) && !this.cooldown) {
-          this.vy = -4.5;
-          this.cooldown = true;
-          AudioEngine.jump();
-        }
-        if (!Input.a && !Input.up) this.cooldown = false;
-        this.vy += 0.25;
-        this.y += this.vy;
-        for (let p of this.pipes) {
-          p.x -= 2.2;
-          if (p.x === 100) { score += 10; AudioEngine.powerup(); }
-        }
-        if (this.pipes[0].x < -60) {
-          this.pipes.shift();
-          this.pipes.push({ x: 480, top: 40 + Math.random() * 140, gap: 85 });
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#0a0d18';
-        c.fillRect(0, 0, 480, 320);
-        c.fillStyle = '#00f3ff';
-        c.fillRect(100, this.y - 8, 16, 16);
-        c.fillStyle = '#ff0055';
-        for (let p of this.pipes) {
-          c.fillRect(p.x, 0, 36, p.top);
-          c.fillRect(p.x, p.top + p.gap, 36, 320);
-        }
-      }
-    }
-
-    // ==========================================
-    // 6. NEON TETRIX
-    // ==========================================
-    class TetrisGame {
-      constructor() {
-        this.title = "🧩 Neon Tetrix";
-        this.grid = Array(16).fill(0).map(() => Array(10).fill(0));
-        this.piece = { x: 4, y: 0, shape: [[1,1],[1,1]], color: '#ffe600' };
-        this.timer = 0;
-      }
-      update() {
-        this.timer++;
-        if (this.timer % 20 === 0) {
-          this.piece.y++;
-          if (this.piece.y > 14) {
-            this.piece.y = 0;
-            score += 40;
-            AudioEngine.hit();
-          }
-        }
-        if (Input.left && this.timer % 6 === 0) this.piece.x = Math.max(0, this.piece.x - 1);
-        if (Input.right && this.timer % 6 === 0) this.piece.x = Math.min(8, this.piece.x + 1);
-      }
-      draw(c) {
-        c.fillStyle = '#0b0c16';
-        c.fillRect(0, 0, 480, 320);
-        c.strokeStyle = '#22283e';
-        c.strokeRect(140, 0, 200, 320);
-        c.fillStyle = this.piece.color;
-        for (let r = 0; r < 2; r++) {
-          for (let col = 0; col < 2; col++) {
-            c.fillRect(140 + (this.piece.x + col) * 20, (this.piece.y + r) * 20, 18, 18);
-          }
-        }
-      }
-    }
-
-    // ==========================================
-    // 7. HIGHWAY RACER
-    // ==========================================
-    class RacerGame {
-      constructor() {
-        this.title = "🏎️ Highway Racer";
-        this.playerX = 240;
-        this.cars = [{ x: 190, y: -40, speed: 2 }, { x: 280, y: -160, speed: 3 }];
-        this.stripe = 0;
-      }
-      update() {
-        if (Input.left) this.playerX -= 4;
-        if (Input.right) this.playerX += 4;
-        this.playerX = Math.max(160, Math.min(320, this.playerX));
-        this.stripe = (this.stripe + 6) % 40;
-        for (let car of this.cars) {
-          car.y += car.speed + 2;
-          if (car.y > 340) {
-            car.y = -60;
-            car.x = 170 + Math.random() * 140;
-            score += 15;
-          }
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#05070a';
-        c.fillRect(0, 0, 480, 320);
-        c.fillStyle = '#1b1f2e';
-        c.fillRect(140, 0, 200, 320);
-        c.fillStyle = '#fff';
-        for (let y = this.stripe - 40; y < 320; y += 40) c.fillRect(238, y, 4, 20);
-        // Player Car
-        c.fillStyle = '#00f3ff';
-        c.fillRect(this.playerX - 10, 250, 20, 36);
-        // Enemy Cars
-        c.fillStyle = '#ff0055';
-        for (let car of this.cars) c.fillRect(car.x - 10, car.y, 20, 34);
-      }
-    }
-
-    // ==========================================
-    // 8. ASTEROIDS 360
-    // ==========================================
-    class AsteroidsGame {
-      constructor() {
-        this.title = "☄️ Asteroids 360";
-        this.ship = { x: 240, y: 160, angle: 0, vx: 0, vy: 0 };
-        this.bullets = [];
-        this.rocks = [{ x: 80, y: 80, r: 24, vx: 1, vy: 0.8 }, { x: 380, y: 220, r: 20, vx: -0.8, vy: 1 }];
-      }
-      update() {
-        if (Input.left) this.ship.angle -= 0.08;
-        if (Input.right) this.ship.angle += 0.08;
-        if (Input.a || Input.up) {
-          this.ship.vx += Math.cos(this.ship.angle) * 0.12;
-          this.ship.vy += Math.sin(this.ship.angle) * 0.12;
-        }
-        this.ship.x = (this.ship.x + this.ship.vx + 480) % 480;
-        this.ship.y = (this.ship.y + this.ship.vy + 320) % 320;
-        this.ship.vx *= 0.98;
-        this.ship.vy *= 0.98;
-        if (Input.b && this.bullets.length < 5) {
-          this.bullets.push({ x: this.ship.x, y: this.ship.y, vx: Math.cos(this.ship.angle) * 6, vy: Math.sin(this.ship.angle) * 6, life: 35 });
-          AudioEngine.laser();
-        }
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
-          let b = this.bullets[i];
-          b.x += b.vx; b.y += b.vy;
-          if (--b.life <= 0) this.bullets.splice(i, 1);
-        }
-      }
-      draw(c) {
-        c.fillStyle = '#04050a';
-        c.fillRect(0, 0, 480, 320);
-        c.save();
-        c.translate(this.ship.x, this.ship.y);
-        c.rotate(this.ship.angle);
-        c.strokeStyle = '#00f3ff';
-        c.lineWidth = 2;
-        c.beginPath();
-        c.moveTo(12, 0); c.lineTo(-8, -7); c.lineTo(-4, 0); c.lineTo(-8, 7); c.closePath();
-        c.stroke();
-        c.restore();
-        c.strokeStyle = '#ffe600';
-        for (let r of this.rocks) {
-          c.beginPath();
-          c.arc(r.x, r.y, r.r, 0, Math.PI*2);
-          c.stroke();
-        }
-        c.fillStyle = '#ff0055';
-        for (let b of this.bullets) c.fillRect(b.x - 2, b.y - 2, 4, 4);
-      }
-    }
+    document.addEventListener('touchstart', initAudio, { once: true });
+    document.addEventListener('click', initAudio, { once: true });
   </script>
 </body>
 </html>
