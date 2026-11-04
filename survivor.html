@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Cyber Survivor: Neon Swarm</title>
+  <style>
+    :root {
+      --bg: #060711;
+      --cyan: #00f3ff;
+      --pink: #ff0055;
+      --yellow: #ffe600;
+      --green: #00ff66;
+      --purple: #b5179e;
+    }
+
+    html, body, #viewport, canvas, #controls, button {
+      touch-action: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      overscroll-behavior: none !important;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      opacity: 0.5;
+    }
+
+    header {
+      height: 52px;
+      background: rgba(14, 18, 30, 0.96);
+      border-bottom: 1px solid rgba(181, 23, 158, 0.3);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 16px;
+      z-index: 10;
+      gap: 4px;
+    }
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .game-badge {
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--purple);
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 10px rgba(181, 23, 158, 0.6);
+    }
+    .hud-text {
+      font-family: monospace;
+      font-size: 0.82rem;
+      color: #cbd5e1;
+    }
+    .btn-action {
+      background: #1e2438;
+      border: 1px solid #3d486c;
+      color: #cbd5e1;
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      touch-action: manipulation;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-action:active {
+      transform: scale(0.95);
+      border-color: var(--cyan);
+    }
+
+    /* EXP Bar */
+    .exp-bar-container {
+      width: 100%;
+      height: 6px;
+      background: #1a2035;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .exp-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--cyan), var(--purple));
+      transition: width 0.15s ease-out;
+    }
+
+    #viewport {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 0 40px rgba(181, 23, 158, 0.15);
+    }
+
+    /* Floating Touch Joystick */
+    #joystick-zone {
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+    }
+    .joy-base {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px solid rgba(0, 243, 255, 0.3);
+      display: none;
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+    .joy-knob {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.6);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Upgrade Modal Cards */
+    .overlay-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 19, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      z-index: 50;
+      padding: 20px;
+    }
+    .modal-title {
+      font-size: 1.8rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--yellow);
+      text-shadow: 0 0 15px rgba(255, 230, 0, 0.5);
+    }
+    .cards-row {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      max-width: 680px;
+      justify-content: center;
+    }
+    .card-choice {
+      flex: 1;
+      background: #14192b;
+      border: 2px solid #2d385e;
+      border-radius: 12px;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 10px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .card-choice:active {
+      transform: scale(0.96);
+      border-color: var(--cyan);
+      background: #1c233c;
+    }
+    .choice-icon { font-size: 2rem; }
+    .choice-name { font-weight: 800; font-size: 0.95rem; color: #fff; }
+    .choice-desc { font-size: 0.75rem; color: #94a3b8; line-height: 1.4; }
+
+    .modal-btn {
+      background: var(--pink);
+      border: none;
+      color: #fff;
+      font-weight: 900;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+      touch-action: manipulation;
+    }
+    .modal-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <header>
+    <div class="header-row">
+      <div class="game-badge">🩸 CYBER SURVIVOR</div>
+      <div class="hud-text" id="time-val">⏱ 00:00</div>
+      <div class="hud-text" id="kill-val">💀 0</div>
+      <div class="hud-text" id="hp-val">❤❤❤❤❤</div>
+      <a href="index.html" class="btn-action">🔙 MENU</a>
+    </div>
+    <div class="exp-bar-container">
+      <div class="exp-bar-fill" id="exp-fill"></div>
+    </div>
+  </header>
+
+  <div id="viewport">
+    <canvas id="survivorCanvas" width="560" height="320"></canvas>
+
+    <!-- Floating Virtual Joystick -->
+    <div id="joystick-zone">
+      <div class="joy-base" id="joy-base">
+        <div class="joy-knob" id="joy-knob"></div>
+      </div>
+    </div>
+
+    <!-- Level-up Modal (Card Choices) -->
+    <div class="overlay-modal" id="levelup-modal">
+      <div class="modal-title">⚡ LEVEL UP! ⚡</div>
+      <div class="hud-text" style="color:var(--cyan); margin-bottom:8px;">SELECT POWER AUGMENTATION</div>
+      <div class="cards-row" id="cards-container"></div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="overlay-modal" id="game-over-modal">
+      <div class="modal-title" style="color:var(--pink);">OVERWHELMED!</div>
+      <div class="hud-text" id="final-stats" style="text-align:center; line-height:1.6;">TIME: 00:00<br>ENEMIES VAPORIZED: 0</div>
+      <button class="modal-btn" onclick="restartGame()">RESPAWN (CONTINUE)</button>
+    </div>
+  </div>
+
+  <script>
+    // --- ป้องกันจอซูมบน Chrome & Safari บน iPad ---
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    // --- Audio Engine ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playTone(freq, type, dur, endFreq = null, gainVal = 0.1) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + dur);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + dur);
+        } catch(e) {}
+      },
+      laser() { this.playTone(850, 'square', 0.08, 200, 0.08); },
+      zap() { this.playTone(1200, 'sawtooth', 0.1, 80, 0.12); },
+      gem() { this.playTone(1050, 'triangle', 0.06, null, 0.06); },
+      hit() { this.playTone(140, 'sawtooth', 0.08, 40, 0.12); },
+      boom() { this.playTone(85, 'square', 0.25, 20, 0.18); },
+      levelUp() {
+        if (!this.ctx) return;
+        [440, 554, 659, 880].forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'sine', 0.15, null, 0.15), i * 70);
+        });
+      }
+    };
+
+    // --- Responsive Canvas ---
+    const canvas = document.getElementById('survivorCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const vp = document.getElementById('viewport');
+      const ratio = 560 / 320;
+      let w = vp.clientWidth;
+      let h = vp.clientWidth / ratio;
+      if (h > vp.clientHeight) {
+        h = vp.clientHeight;
+        w = vp.clientHeight * ratio;
+      }
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- Floating Touch Joystick ---
+    const joyZone = document.getElementById('joystick-zone');
+    const joyBase = document.getElementById('joy-base');
+    const joyKnob = document.getElementById('joy-knob');
+
+    const JoyInput = { x: 0, y: 0, active: false, startX: 0, startY: 0 };
+
+    joyZone.addEventListener('pointerdown', (e) => {
+      AudioEngine.init();
+      JoyInput.active = true;
+      const rect = joyZone.getBoundingClientRect();
+      JoyInput.startX = e.clientX - rect.left;
+      JoyInput.startY = e.clientY - rect.top;
+
+      joyBase.style.left = `${JoyInput.startX}px`;
+      joyBase.style.top = `${JoyInput.startY}px`;
+      joyBase.style.display = 'block';
+      joyKnob.style.transform = `translate(-50%, -50%)`;
+    });
+
+    window.addEventListener('pointermove', (e) => {
+      if (!JoyInput.active) return;
+      const rect = joyZone.getBoundingClientRect();
+      const currX = e.clientX - rect.left;
+      const currY = e.clientY - rect.top;
+
+      let dx = currX - JoyInput.startX;
+      let dy = currY - JoyInput.startY;
+      const dist = Math.hypot(dx, dy);
+      const maxRadius = 45;
+
+      if (dist > maxRadius) {
+        dx = (dx / dist) * maxRadius;
+        dy = (dy / dist) * maxRadius;
+      }
+
+      joyKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+      JoyInput.x = dx / maxRadius;
+      JoyInput.y = dy / maxRadius;
+    });
+
+    const resetJoy = () => {
+      JoyInput.active = false;
+      JoyInput.x = 0;
+      JoyInput.y = 0;
+      joyBase.style.display = 'none';
+    };
+    window.addEventListener('pointerup', resetJoy);
+    window.addEventListener('pointercancel', resetJoy);
+
+    // Keyboard support
+    const KeyInput = { up: false, down: false, left: false, right: false };
+    window.addEventListener('keydown', (e) => {
+      AudioEngine.init();
+      if (e.code === 'ArrowUp' || e.key === 'w') KeyInput.up = true;
+      if (e.code === 'ArrowDown' || e.key === 's') KeyInput.down = true;
+      if (e.code === 'ArrowLeft' || e.key === 'a') KeyInput.left = true;
+      if (e.code === 'ArrowRight' || e.key === 'd') KeyInput.right = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowUp' || e.key === 'w') KeyInput.up = false;
+      if (e.code === 'ArrowDown' || e.key === 's') KeyInput.down = false;
+      if (e.code === 'ArrowLeft' || e.key === 'a') KeyInput.left = false;
+      if (e.code === 'ArrowRight' || e.key === 'd') KeyInput.right = false;
+    });
+
+    // --- Particle Engine ---
+    const FX = {
+      particles: [],
+      texts: [],
+      shake: 0,
+      addExplosion(x, y, color = '#ff0055', count = 10) {
+        this.shake = Math.min(this.shake + 4, 10);
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 2 + Math.random() * 4;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            color,
+            life: 14 + Math.random() * 8,
+            maxLife: 22,
+            r: 2 + Math.random() * 2.5
+          });
+        }
+      },
+      addText(x, y, str, color = '#fff') {
+        this.texts.push({ x, y, str, color, life: 30, vy: -1.2 });
+      },
+      update() {
+        if (this.shake > 0) this.shake *= 0.86;
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.94; p.vy *= 0.94;
+          if (--p.life <= 0) this.particles.splice(i, 1);
+        }
+        for (let i = this.texts.length - 1; i >= 0; i--) {
+          const t = this.texts[i];
+          t.y += t.vy;
+          if (--t.life <= 0) this.texts.splice(i, 1);
+        }
+      },
+      draw(c) {
+        for (const p of this.particles) {
+          c.fillStyle = p.color;
+          c.beginPath();
+          c.arc(p.x, p.y, Math.max(0.5, p.r * (p.life / p.maxLife)), 0, Math.PI * 2);
+          c.fill();
+        }
+        for (const t of this.texts) {
+          c.save();
+          c.font = 'bold 11px monospace';
+          c.fillStyle = t.color;
+          c.shadowColor = t.color;
+          c.shadowBlur = 6;
+          c.fillText(t.str, t.x - c.measureText(t.str).width / 2, t.y);
+          c.restore();
+        }
+      }
+    };
+
+    // --- Game Logic Core ---
+    const UPGRADES_POOL = [
+      { id: 'blades', name: 'Orbit Blades', desc: '+1 ใบมีดพลาสมาหมุนรอบตัว ฟันศัตรู', icon: '⚔️' },
+      { id: 'lightning', name: 'Chain Lightning', desc: 'สายฟ้าผ่าใส่ศัตรูแบบสุ่มรุนแรงขึ้น', icon: '⚡' },
+      { id: 'pulse', name: 'Pulse Ring', desc: 'ระเบิดคลื่นพลังงานผลักศัตรูกระเด็น', icon: '💫' },
+      { id: 'speed', name: 'Agility Thruster', desc: 'เพิ่มความเร็วเคลื่อนที่ของตัวละคร 15%', icon: '👟' },
+      { id: 'heal', name: 'Repair Nanites', desc: 'ฟื้นฟู HP เต็มทันที + เพิ่ม Max HP', icon: '💖' }
+    ];
+
+    const game = {
+      seconds: 0,
+      kills: 0,
+      level: 1,
+      exp: 0,
+      nextExp: 10,
+      paused: false,
+      player: {
+        x: 0,
+        y: 0,
+        vx: 0,
+        vy: 0,
+        speed: 3.2,
+        hp: 5,
+        maxHp: 5,
+        invuln: 0
+      },
+      weapons: {
+        bladeCount: 1,
+        bladeAngle: 0,
+        lightningLevel: 0,
+        lightningCd: 0,
+        pulseLevel: 0,
+        pulseCd: 0,
+        pulseRadius: 0
+      },
+      enemies: [],
+      gems: [],
+      lightnings: []
+    };
+
+    function updateHUD() {
+      const mins = String(Math.floor(game.seconds / 60)).padStart(2, '0');
+      const secs = String(game.seconds % 60).padStart(2, '0');
+      document.getElementById('time-val').innerText = `⏱ ${mins}:${secs}`;
+      document.getElementById('kill-val').innerText = `💀 ${game.kills}`;
+      document.getElementById('hp-val').innerText = '❤'.repeat(game.player.hp) + '🖤'.repeat(game.player.maxHp - game.player.hp);
+      const pct = Math.min(100, (game.exp / game.nextExp) * 100);
+      document.getElementById('exp-fill').style.width = `${pct}%`;
+    }
+
+    function addExp(amount) {
+      game.exp += amount;
+      if (game.exp >= game.nextExp) {
+        game.exp -= game.nextExp;
+        game.level++;
+        game.nextExp = Math.floor(game.nextExp * 1.4);
+        AudioEngine.levelUp();
+        triggerLevelUp();
+      }
+      updateHUD();
+    }
+
+    function triggerLevelUp() {
+      game.paused = true;
+      const container = document.getElementById('cards-container');
+      container.innerHTML = '';
+
+      // Pick 3 random cards
+      const shuffled = [...UPGRADES_POOL].sort(() => 0.5 - Math.random()).slice(0, 3);
+      shuffled.forEach(upg => {
+        const card = document.createElement('div');
+        card.className = 'card-choice';
+        card.innerHTML = `
+          <div class="choice-icon">${upg.icon}</div>
+          <div class="choice-name">${upg.name}</div>
+          <div class="choice-desc">${upg.desc}</div>
+        `;
+        card.onclick = () => selectUpgrade(upg.id);
+        container.appendChild(card);
+      });
+
+      document.getElementById('levelup-modal').style.display = 'flex';
+    }
+
+    function selectUpgrade(id) {
+      if (id === 'blades') game.weapons.bladeCount++;
+      else if (id === 'lightning') game.weapons.lightningLevel++;
+      else if (id === 'pulse') game.weapons.pulseLevel++;
+      else if (id === 'speed') game.player.speed *= 1.15;
+      else if (id === 'heal') {
+        game.player.maxHp++;
+        game.player.hp = game.player.maxHp;
+      }
+
+      document.getElementById('levelup-modal').style.display = 'none';
+      game.paused = false;
+      updateHUD();
+    }
+
+    function showGameOver() {
+      game.paused = true;
+      const mins = String(Math.floor(game.seconds / 60)).padStart(2, '0');
+      const secs = String(game.seconds % 60).padStart(2, '0');
+      document.getElementById('final-stats').innerHTML = `SURVIVED: ${mins}:${secs}<br>ENEMIES DEFEATED: ${game.kills}<br>REACHED LEVEL ${game.level}`;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    function restartGame() {
+      game.seconds = 0;
+      game.kills = 0;
+      game.level = 1;
+      game.exp = 0;
+      game.nextExp = 10;
+      game.player.x = 0;
+      game.player.y = 0;
+      game.player.speed = 3.2;
+      game.player.hp = 5;
+      game.player.maxHp = 5;
+      game.player.invuln = 0;
+
+      game.weapons.bladeCount = 1;
+      game.weapons.lightningLevel = 0;
+      game.weapons.pulseLevel = 0;
+
+      game.enemies = [];
+      game.gems = [];
+      game.lightnings = [];
+
+      document.getElementById('game-over-modal').style.display = 'none';
+      document.getElementById('levelup-modal').style.display = 'none';
+      game.paused = false;
+      updateHUD();
+    }
+
+    // Spawn Swarms around player off-screen
+    function spawnEnemy() {
+      const ang = Math.random() * Math.PI * 2;
+      const dist = 340;
+      const isBrute = Math.random() < 0.15;
+
+      game.enemies.push({
+        x: game.player.x + Math.cos(ang) * dist,
+        y: game.player.y + Math.sin(ang) * dist,
+        hp: isBrute ? 4 : 1,
+        maxHp: isBrute ? 4 : 1,
+        speed: isBrute ? 1.4 : (2.0 + Math.random() * 0.6),
+        r: isBrute ? 12 : 8,
+        color: isBrute ? '#ff0055' : '#b5179e'
+      });
+    }
+
+    let tickTimer = 0;
+
+    function update() {
+      if (game.paused) return;
+
+      tickTimer++;
+      if (tickTimer % 60 === 0) {
+        game.seconds++;
+        updateHUD();
+      }
+
+      // Movement Input (Analog or Keyboard)
+      let mx = 0;
+      let my = 0;
+
+      if (JoyInput.active) {
+        mx = JoyInput.x;
+        my = JoyInput.y;
+      } else {
+        if (KeyInput.up) my -= 1;
+        if (KeyInput.down) my += 1;
+        if (KeyInput.left) mx -= 1;
+        if (KeyInput.right) mx += 1;
+        const len = Math.hypot(mx, my);
+        if (len > 0) { mx /= len; my /= len; }
+      }
+
+      const p = game.player;
+      p.x += mx * p.speed;
+      p.y += my * p.speed;
+      if (p.invuln > 0) p.invuln--;
+
+      // Spawn swarm
+      const spawnRate = Math.max(8, 30 - Math.floor(game.seconds / 15));
+      if (tickTimer % spawnRate === 0) {
+        spawnEnemy();
+      }
+
+      // Weapon 1: Orbitin
