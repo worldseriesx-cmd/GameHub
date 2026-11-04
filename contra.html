@@ -15,7 +15,6 @@
       --green: #00ff66;
     }
 
-    /* ล็อกการซูมและ Gesture ทุกรูปแบบบน iPad Chrome & Safari */
     html, body, #viewport, canvas, #controls, button {
       touch-action: none !important;
       -webkit-touch-callout: none !important;
@@ -37,7 +36,7 @@
       overflow: hidden;
       width: 100vw;
       height: 100vh;
-      height: 100dvh; /* ใช้ dynamic viewport height ป้องกันปุ่มจม */
+      height: 100dvh;
       display: flex;
       flex-direction: column;
     }
@@ -108,16 +107,23 @@
 
     #viewport {
       flex: 1;
-      min-height: 0; /* สำคัญมาก: ป้องกันไม่ให้ Canvas ขยายดันแผงปุ่มด้านล่างจม */
+      min-height: 180px;
       position: relative;
       display: flex;
       justify-content: center;
       align-items: center;
       background: #000;
       overflow: hidden;
+      width: 100%;
     }
+
+    /* ป้องกัน Canvas ยุบตัวเป็น 0px ด้วย CSS Fallback */
     canvas {
       display: block;
+      max-width: 100%;
+      max-height: 100%;
+      aspect-ratio: 16 / 9;
+      object-fit: contain;
       box-shadow: 0 0 30px rgba(0, 243, 255, 0.15);
     }
 
@@ -169,7 +175,6 @@
       touch-action: manipulation;
     }
 
-    /* 8-Direction Control Dock (แก้ขนาดไม่ให้จมขอบจอ iPad) */
     #controls {
       flex-shrink: 0;
       height: 160px;
@@ -305,7 +310,6 @@
   </div>
 
   <script>
-    // --- ป้องกันจอซูมบน Chrome & Safari บน iPad ---
     document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
     document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
     document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
@@ -321,7 +325,6 @@
       if (e.touches.length > 1) e.preventDefault();
     }, { passive: false });
 
-    // --- Synthesized Retro Sound Engine ---
     const AudioEngine = {
       ctx: null,
       init() {
@@ -370,7 +373,6 @@
       }
     };
 
-    // --- 8-Way Input Manager ---
     const Input = {
       up: false, down: false, left: false, right: false,
       a: false, b: false,
@@ -447,7 +449,6 @@
       }
     }
 
-    // --- Particle Engine ---
     const FX = {
       particles: [],
       texts: [],
@@ -506,26 +507,30 @@
       }
     };
 
-    // --- Canvas Setup ---
     const canvas = document.getElementById('contraCanvas');
     const ctx = canvas.getContext('2d');
 
+    // ปรับปรุงฟังก์ชันคำนวณขนาดจอ ป้องกันการยุบตัวเป็น 0px อย่างเด็ดขาด
     function resizeCanvas() {
       const vp = document.getElementById('viewport');
+      if (!vp) return;
+      const cw = vp.clientWidth;
+      const ch = vp.clientHeight;
+      if (cw < 40 || ch < 40) return; // หากยังไม่เริ่ม Render layout ให้ข้ามไปก่อน
+
       const targetRatio = 480 / 270;
-      let finalW = vp.clientWidth;
-      let finalH = vp.clientWidth / targetRatio;
-      if (finalH > vp.clientHeight) {
-        finalH = vp.clientHeight;
-        finalW = vp.clientHeight * targetRatio;
+      let finalW = cw;
+      let finalH = cw / targetRatio;
+      if (finalH > ch) {
+        finalH = ch;
+        finalW = ch * targetRatio;
       }
-      canvas.style.width = `${finalW}px`;
-      canvas.style.height = `${finalH}px`;
+      canvas.style.width = `${Math.floor(finalW)}px`;
+      canvas.style.height = `${Math.floor(finalH)}px`;
     }
     window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
+    window.addEventListener('load', resizeCanvas);
 
-    // --- Game World State ---
     const gameState = {
       stage: 1,
       score: 0,
@@ -576,22 +581,20 @@
 
         this.crouch = down && this.grounded && !left && !right;
 
-        // ทิศทางการเล็ง 8 ทิศทาง
         if (this.crouch) {
           this.aimDir = { x: this.facing, y: 0 };
         } else if (up && (left || right)) {
-          this.aimDir = { x: this.facing * 0.707, y: -0.707 }; // เฉียงขึ้น 45°
+          this.aimDir = { x: this.facing * 0.707, y: -0.707 };
         } else if (down && (left || right)) {
-          this.aimDir = { x: this.facing * 0.707, y: 0.707 };  // เฉียงลง 45°
+          this.aimDir = { x: this.facing * 0.707, y: 0.707 };
         } else if (up) {
-          this.aimDir = { x: 0, y: -1 };                        // เล็งขึ้นฟ้าตรงๆ
+          this.aimDir = { x: 0, y: -1 };
         } else if (down && !this.grounded) {
-          this.aimDir = { x: 0, y: 1 };                         // ทิ้งดิ่งลงล่างกลางอากาศ
+          this.aimDir = { x: 0, y: 1 };
         } else {
-          this.aimDir = { x: this.facing, y: 0 };              // ยิงตรงไปข้างหน้า
+          this.aimDir = { x: this.facing, y: 0 };
         }
 
-        // การเดิน
         if (!this.crouch) {
           if (left) this.vx = -2.8;
           else if (right) this.vx = 2.8;
@@ -600,13 +603,12 @@
           this.vx = 0;
         }
 
-        // กระโดด หรือ โดดทิ้งตัวลอดแท่น
         if (Input.a && this.grounded) {
           if (down && this.y < 235) {
             this.y += 6;
             this.grounded = false;
           } else {
-            this.vy = -7.2; // กระโดดสูงขึ้น ข้ามแท่นสบาย
+            this.vy = -7.2;
             this.grounded = false;
             this.rolling = true;
             AudioEngine.jump();
@@ -621,6 +623,675 @@
           this.rollAngle += 0.3 * this.facing;
         }
 
-        // ชนแท่นยืน
         this.grounded = false;
- 
+        for (const plat of gameState.platforms) {
+          if (this.x + this.w/2 > plat.x && this.x - this.w/2 < plat.x + plat.w) {
+            if (this.y + this.h/2 >= plat.y && this.y + this.h/2 <= plat.y + 12 && this.vy >= 0) {
+              this.y = plat.y - this.h/2;
+              this.vy = 0;
+              this.grounded = true;
+              this.rolling = false;
+              this.rollAngle = 0;
+            }
+          }
+        }
+
+        if (this.y > 290) this.hit();
+
+        this.shootCd = Math.max(0, this.shootCd - 1);
+        if (Input.b && this.shootCd === 0) {
+          this.shoot();
+        }
+      }
+
+      shoot() {
+        const dx = this.aimDir.x;
+        const dy = this.aimDir.y;
+        const muzzleX = this.x + dx * 14;
+        const muzzleY = this.crouch ? (this.y + 4) : (this.y - 4 + dy * 12);
+
+        if (this.gun === 'S') {
+          this.shootCd = 12;
+          const baseAngle = Math.atan2(dy, dx);
+          [-0.35, -0.18, 0, 0.18, 0.35].forEach(ang => {
+            const finalA = baseAngle + ang;
+            gameState.bullets.push({
+              x: muzzleX, y: muzzleY,
+              vx: Math.cos(finalA) * 6.5,
+              vy: Math.sin(finalA) * 6.5,
+              r: 3.5,
+              color: '#ffe600'
+            });
+          });
+          AudioEngine.spread();
+        } else if (this.gun === 'M') {
+          this.shootCd = 6;
+          gameState.bullets.push({
+            x: muzzleX, y: muzzleY,
+            vx: dx * 8, vy: dy * 8,
+            r: 3,
+            color: '#ff0055'
+          });
+          AudioEngine.rifle();
+        } else if (this.gun === 'L') {
+          this.shootCd = 14;
+          gameState.bullets.push({
+            x: muzzleX, y: muzzleY,
+            vx: dx * 10, vy: dy * 10,
+            r: 5,
+            isLaser: true,
+            color: '#00f3ff'
+          });
+          AudioEngine.laser();
+        } else {
+          this.shootCd = 10;
+          gameState.bullets.push({
+            x: muzzleX, y: muzzleY,
+            vx: dx * 7.5, vy: dy * 7.5,
+            r: 2.5,
+            color: '#fff'
+          });
+          AudioEngine.rifle();
+        }
+      }
+
+      hit() {
+        if (this.invuln > 0) return;
+        FX.addExplosion(this.x, this.y, '#ff0055', 24);
+        AudioEngine.boom();
+        gameState.lives--;
+        this.gun = 'R';
+        updateHUD();
+        if (gameState.lives <= 0) {
+          showGameOver();
+        } else {
+          this.reset(gameState.camX + 60, 100);
+          this.invuln = 90;
+        }
+      }
+
+      draw(c) {
+        if (this.invuln > 0 && Math.floor(Date.now() / 60) % 2 === 0) return;
+        c.save();
+        c.translate(this.x, this.y);
+
+        if (this.rolling) {
+          c.rotate(this.rollAngle);
+          c.fillStyle = '#00f3ff';
+          c.beginPath();
+          c.arc(0, 0, 9, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = '#ff0055';
+          c.fillRect(-5, -2, 10, 4);
+        } else if (this.crouch) {
+          c.fillStyle = '#00f3ff';
+          c.fillRect(-12, 4, 24, 8);
+          c.fillStyle = '#ff0055';
+          c.fillRect(this.facing > 0 ? 4 : -10, 4, 6, 3);
+          c.fillStyle = '#cbd5e1';
+          c.fillRect(this.facing > 0 ? 12 : -18, 6, this.facing * 8, 3);
+        } else {
+          c.fillStyle = '#00f3ff';
+          c.fillRect(-5, -12, 10, 24);
+          c.fillStyle = '#ff0055';
+          c.fillRect(-6, -12, 12, 4);
+          c.fillStyle = '#ffffff';
+          const bx = this.aimDir.x * 12;
+          const by = this.aimDir.y * 12;
+          c.beginPath();
+          c.lineWidth = 3.5;
+          c.strokeStyle = '#ffffff';
+          c.moveTo(0, -4);
+          c.lineTo(bx, -4 + by);
+          c.stroke();
+        }
+        c.restore();
+      }
+    }
+
+    function initStage(stageNum) {
+      gameState.stage = stageNum;
+      gameState.bullets = [];
+      gameState.enemyBullets = [];
+      gameState.enemies = [];
+      gameState.capsules = [];
+      gameState.platforms = [];
+      gameState.camX = 0;
+      gameState.camY = 0;
+      gameState.paused = false;
+
+      hideModals();
+
+      if (!gameState.player) gameState.player = new Player();
+      gameState.player.reset(60, 180);
+
+      if (stageNum === 1) {
+        gameState.platforms = [
+          { x: 0, y: 240, w: 750, h: 40 },
+          { x: 140, y: 190, w: 90, h: 8 },
+          { x: 280, y: 150, w: 100, h: 8 },
+          { x: 440, y: 180, w: 110, h: 8 },
+          { x: 600, y: 150, w: 130, h: 8 },
+          
+          { x: 730, y: 240, w: 180, h: 14, isBridge: true },
+          { x: 740, y: 180, w: 90, h: 8 },
+
+          { x: 900, y: 240, w: 600, h: 40 },
+          { x: 980, y: 190, w: 90, h: 8 },
+          { x: 1120, y: 150, w: 120, h: 8 },
+          { x: 1300, y: 180, w: 100, h: 8 },
+          { x: 1420, y: 150, w: 110, h: 8 },
+
+          { x: 1490, y: 240, w: 180, h: 14, isBridge: true },
+          { x: 1540, y: 180, w: 90, h: 8 },
+
+          { x: 1650, y: 240, w: 1000, h: 40 },
+          { x: 1720, y: 190, w: 120, h: 8 },
+          { x: 1900, y: 150, w: 140, h: 8 },
+          { x: 2100, y: 180, w: 120, h: 8 },
+          { x: 2280, y: 190, w: 320, h: 10 }
+        ];
+
+        gameState.capsules = [
+          { x: 350, y: 100, vx: -1.2, alive: true, gun: 'M' },
+          { x: 1050, y: 90, vx: -1.2, alive: true, gun: 'S' },
+          { x: 1800, y: 95, vx: -1.2, alive: true, gun: 'L' }
+        ];
+
+        gameState.enemies.push(
+          { type: 'turret', x: 500, y: 165, hp: 6, shootCd: 50 },
+          { type: 'turret', x: 1200, y: 135, hp: 8, shootCd: 45 },
+          { type: 'turret', x: 1980, y: 135, hp: 8, shootCd: 40 },
+          { type: 'sniper', x: 650, y: 134, hp: 3, shootCd: 60 },
+          { type: 'sniper', x: 1360, y: 164, hp: 4, shootCd: 50 }
+        );
+
+        gameState.boss = {
+          type: 'fortress',
+          x: 2360, y: 80, w: 60, h: 160,
+          coreY: 170, hp: 80, maxHp: 80,
+          tTopHp: 20, tBotHp: 20,
+          pulse: 0
+        };
+      } 
+      else if (stageNum === 2) {
+        gameState.player.reset(220, 230);
+        gameState.platforms = [
+          { x: 0, y: 250, w: 480, h: 30 },
+          { x: 60, y: 205, w: 100, h: 8 },
+          { x: 310, y: 175, w: 110, h: 8 },
+          { x: 130, y: 135, w: 120, h: 8 },
+          { x: 30, y: 95, w: 110, h: 8 },
+          { x: 260, y: 65, w: 120, h: 8 },
+          { x: 140, y: 25, w: 160, h: 10 }
+        ];
+        gameState.capsules = [{ x: 360, y: 110, vx: -1, alive: true, gun: 'S' }];
+        gameState.enemies.push(
+          { type: 'sniper', x: 90, y: 79, hp: 3, shootCd: 50 },
+          { type: 'sniper', x: 330, y: 49, hp: 3, shootCd: 45 }
+        );
+        gameState.boss = {
+          type: 'gunship',
+          x: 240, y: 40, vx: 2.2,
+          hp: 110, maxHp: 110
+        };
+      } 
+      else if (stageNum === 3) {
+        gameState.platforms = [
+          { x: 0, y: 240, w: 2200, h: 40 },
+          { x: 150, y: 180, w: 120, h: 8 },
+          { x: 340, y: 140, w: 130, h: 8 },
+          { x: 560, y: 170, w: 130, h: 8 },
+          { x: 800, y: 130, w: 140, h: 8 },
+          { x: 1050, y: 170, w: 150, h: 8 },
+          { x: 1350, y: 140, w: 140, h: 8 },
+          { x: 1680, y: 180, w: 380, h: 12 }
+        ];
+        gameState.capsules = [
+          { x: 450, y: 80, vx: -1.2, alive: true, gun: 'S' },
+          { x: 1200, y: 80, vx: -1.2, alive: true, gun: 'L' }
+        ];
+        gameState.enemies.push(
+          { type: 'turret', x: 620, y: 155, hp: 8, shootCd: 40 },
+          { type: 'turret', x: 1120, y: 155, hp: 10, shootCd: 35 }
+        );
+        gameState.boss = {
+          type: 'brain',
+          x: 1860, y: 135,
+          hp: 160, maxHp: 160,
+          angle: 0
+        };
+      }
+      updateHUD();
+    }
+
+    function updateHUD() {
+      document.getElementById('score-val').innerText = `1P ${String(gameState.score).padStart(5, '0')}`;
+      document.getElementById('lives-val').innerText = `★ x${gameState.lives}`;
+      const gunNames = { 'R': '[R] RIFLE', 'S': '[S] SPREAD', 'M': '[M] MACHINE', 'L': '[L] LASER' };
+      document.getElementById('gun-val').innerText = gunNames[gameState.player.gun] || '[R] RIFLE';
+    }
+
+    function hideModals() {
+      document.getElementById('stage-clear-modal').style.display = 'none';
+      document.getElementById('game-over-modal').style.display = 'none';
+      document.getElementById('victory-modal').style.display = 'none';
+    }
+
+    function showStageClear(desc) {
+      gameState.paused = true;
+      AudioEngine.winFanfare();
+      document.getElementById('stage-clear-desc').innerText = desc;
+      document.getElementById('stage-clear-modal').style.display = 'flex';
+    }
+
+    function showGameOver() {
+      gameState.paused = true;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    function showVictory() {
+      gameState.paused = true;
+      AudioEngine.winFanfare();
+      document.getElementById('victory-modal').style.display = 'flex';
+    }
+
+    function nextStage() {
+      if (gameState.stage < 3) initStage(gameState.stage + 1);
+      else showVictory();
+    }
+
+    function restartGame() {
+      gameState.score = 0;
+      gameState.lives = 3;
+      initStage(1);
+    }
+
+    let frameCount = 0;
+
+    function update() {
+      if (gameState.paused) return;
+      frameCount++;
+
+      const p = gameState.player;
+      p.update();
+
+      if (gameState.stage !== 2) {
+        if (p.x - gameState.camX > 220) gameState.camX = p.x - 220;
+        if (p.x < gameState.camX + 16) p.x = gameState.camX + 16;
+      }
+
+      const maxDist = gameState.stage === 1 ? 2200 : 1600;
+      if (frameCount % 85 === 0 && p.x < maxDist) {
+        gameState.enemies.push({
+          type: 'runner',
+          x: gameState.camX + 490,
+          y: 220,
+          vx: -2.4 - Math.random() * 0.8,
+          hp: 1,
+          jumpTimer: Math.floor(Math.random() * 60)
+        });
+      }
+
+      for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+        const b = gameState.bullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+        if (b.x < gameState.camX - 20 || b.x > gameState.camX + 500 || b.y < -20 || b.y > 300) {
+          gameState.bullets.splice(i, 1);
+        }
+      }
+
+      for (let i = gameState.enemyBullets.length - 1; i >= 0; i--) {
+        const eb = gameState.enemyBullets[i];
+        eb.x += eb.vx;
+        eb.y += eb.vy;
+        if (Math.hypot(eb.x - p.x, eb.y - p.y) < 11) {
+          gameState.enemyBullets.splice(i, 1);
+          p.hit();
+          continue;
+        }
+        if (eb.x < gameState.camX - 30 || eb.x > gameState.camX + 520 || eb.y < -20 || eb.y > 300) {
+          gameState.enemyBullets.splice(i, 1);
+        }
+      }
+
+      for (const cap of gameState.capsules) {
+        if (cap.alive) {
+          cap.x += cap.vx;
+          for (let bi = gameState.bullets.length - 1; bi >= 0; bi--) {
+            const b = gameState.bullets[bi];
+            if (Math.hypot(b.x - cap.x, b.y - cap.y) < 20) {
+              cap.alive = false;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              p.gun = cap.gun;
+              AudioEngine.powerup();
+              FX.addText(cap.x, cap.y - 12, `WEAPON [${cap.gun}] ACQUIRED!`, "#ffe600");
+              gameState.score += 500;
+              updateHUD();
+              break;
+            }
+          }
+        }
+      }
+
+      for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const e = gameState.enemies[i];
+
+        if (e.type === 'runner') {
+          e.x += e.vx;
+          if (--e.jumpTimer <= 0) {
+            e.y -= 3;
+            e.jumpTimer = 80;
+          }
+        } else if (e.type === 'turret') {
+          if (--e.shootCd <= 0 && Math.abs(e.x - p.x) < 320) {
+            e.shootCd = 65;
+            const ang = Math.atan2(p.y - e.y, p.x - e.x);
+            gameState.enemyBullets.push({
+              x: e.x + Math.cos(ang) * 12,
+              y: e.y + Math.sin(ang) * 12,
+              vx: Math.cos(ang) * 3.2,
+              vy: Math.sin(ang) * 3.2
+            });
+          }
+        } else if (e.type === 'sniper') {
+          if (--e.shootCd <= 0 && Math.abs(e.x - p.x) < 340) {
+            e.shootCd = 75;
+            const dirX = p.x < e.x ? -1 : 1;
+            gameState.enemyBullets.push({
+              x: e.x + dirX * 10,
+              y: e.y - 2,
+              vx: dirX * 3.8,
+              vy: 0.5
+            });
+          }
+        }
+
+        if (Math.hypot(e.x - p.x, e.y - p.y) < 16) {
+          p.hit();
+        }
+
+        for (let bi = gameState.bullets.length - 1; bi >= 0; bi--) {
+          const b = gameState.bullets[bi];
+          if (Math.hypot(b.x - e.x, b.y - e.y) < 18) {
+            e.hp--;
+            if (!b.isLaser) gameState.bullets.splice(bi, 1);
+            if (e.hp <= 0) {
+              FX.addExplosion(e.x, e.y, '#ff0055', 15);
+              AudioEngine.boom();
+              gameState.score += e.type === 'turret' ? 300 : 100;
+              updateHUD();
+              gameState.enemies.splice(i, 1);
+              break;
+            }
+          }
+        }
+      }
+
+      const boss = gameState.boss;
+      if (boss && boss.hp > 0) {
+        if (boss.type === 'fortress' && p.x > 2100) {
+          boss.pulse += 0.05;
+
+          if (boss.tTopHp > 0 && frameCount % 60 === 0) {
+            gameState.enemyBullets.push({ x: boss.x, y: boss.y + 30, vx: -3.8, vy: 0.8 });
+          }
+          if (boss.tBotHp > 0 && frameCount % 50 === 0) {
+            gameState.enemyBullets.push({ x: boss.x, y: boss.y + 130, vx: -3.8, vy: -0.6 });
+          }
+          if (boss.tTopHp <= 0 && boss.tBotHp <= 0 && frameCount % 45 === 0) {
+            gameState.enemyBullets.push({ x: boss.x, y: boss.coreY, vx: -4.2, vy: (Math.random() - 0.5) * 2 });
+          }
+
+          for (let bi = gameState.bullets.length - 1; bi >= 0; bi--) {
+            const b = gameState.bullets[bi];
+            if (boss.tTopHp > 0 && Math.hypot(b.x - boss.x, b.y - (boss.y + 30)) < 20) {
+              boss.tTopHp--;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              AudioEngine.hit();
+              if (boss.tTopHp <= 0) FX.addExplosion(boss.x, boss.y + 30, '#ffe600', 20);
+              continue;
+            }
+            if (boss.tBotHp > 0 && Math.hypot(b.x - boss.x, b.y - (boss.y + 130)) < 20) {
+              boss.tBotHp--;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              AudioEngine.hit();
+              if (boss.tBotHp <= 0) FX.addExplosion(boss.x, boss.y + 130, '#ffe600', 20);
+              continue;
+            }
+            if (Math.hypot(b.x - (boss.x + 18), b.y - boss.coreY) < 24) {
+              if (boss.tTopHp > 0 || boss.tBotHp > 0) {
+                FX.addText(b.x, b.y - 10, "SHIELDED!", "#00f3ff");
+                if (!b.isLaser) gameState.bullets.splice(bi, 1);
+                AudioEngine.hit();
+                continue;
+              }
+              boss.hp--;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              AudioEngine.hit();
+              FX.addExplosion(b.x, b.y, '#ffe600', 4);
+              if (boss.hp <= 0) {
+                FX.addExplosion(boss.x + 20, boss.coreY, '#ff0055', 50);
+                AudioEngine.boom();
+                gameState.score += 8000;
+                updateHUD();
+                setTimeout(() => showStageClear("OUTPOST FORTRESS ANNIHILATED!"), 800);
+              }
+            }
+          }
+        } 
+        else if (boss.type === 'gunship') {
+          boss.x += boss.vx;
+          if (boss.x < 70 || boss.x > 410) boss.vx *= -1;
+          if (frameCount % 40 === 0) {
+            gameState.enemyBullets.push({ x: boss.x, y: boss.y + 15, vx: (Math.random() - 0.5) * 3, vy: 3.2 });
+          }
+          for (let bi = gameState.bullets.length - 1; bi >= 0; bi--) {
+            const b = gameState.bullets[bi];
+            if (Math.hypot(b.x - boss.x, b.y - boss.y) < 32) {
+              boss.hp--;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              AudioEngine.hit();
+              if (boss.hp <= 0) {
+                FX.addExplosion(boss.x, boss.y, '#ff0055', 50);
+                AudioEngine.boom();
+                gameState.score += 10000;
+                updateHUD();
+                setTimeout(() => showStageClear("WATERFALL GUNSHIP DESTROYED!"), 800);
+              }
+            }
+          }
+        }
+        else if (boss.type === 'brain' && p.x > 1600) {
+          boss.angle += 0.04;
+          if (frameCount % 40 === 0) {
+            gameState.enemyBullets.push({
+              x: boss.x, y: boss.y,
+              vx: -4, vy: Math.sin(boss.angle) * 2.5
+            });
+          }
+          for (let bi = gameState.bullets.length - 1; bi >= 0; bi--) {
+            const b = gameState.bullets[bi];
+            if (Math.hypot(b.x - boss.x, b.y - boss.y) < 42) {
+              boss.hp--;
+              if (!b.isLaser) gameState.bullets.splice(bi, 1);
+              AudioEngine.hit();
+              if (boss.hp <= 0) {
+                FX.addExplosion(boss.x, boss.y, '#00f3ff', 70);
+                AudioEngine.boom();
+                gameState.score += 20000;
+                updateHUD();
+                setTimeout(() => showVictory(), 900);
+              }
+            }
+          }
+        }
+      }
+
+      FX.update();
+    }
+
+    function draw() {
+      ctx.save();
+      if (FX.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * FX.shake, (Math.random() - 0.5) * FX.shake);
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.save();
+      ctx.translate(-gameState.camX, -gameState.camY);
+
+      if (gameState.stage === 1) {
+        ctx.fillStyle = '#050c18';
+        ctx.fillRect(gameState.camX, 0, 480, 270);
+        ctx.fillStyle = '#0a1d30';
+        for (let i = 0; i < 18; i++) {
+          ctx.fillRect((i * 160) - (gameState.camX * 0.3) % 160, 80, 80, 180);
+        }
+        ctx.fillStyle = '#00f3ff28';
+        ctx.fillRect(730, 245, 180, 25);
+        ctx.fillRect(1490, 245, 180, 25);
+      } else if (gameState.stage === 2) {
+        ctx.fillStyle = '#061324';
+        ctx.fillRect(0, 0, 480, 270);
+        ctx.fillStyle = 'rgba(0, 243, 255, 0.12)';
+        ctx.fillRect(180, 0, 120, 270);
+      } else {
+        ctx.fillStyle = '#140612';
+        ctx.fillRect(gameState.camX, 0, 480, 270);
+      }
+
+      for (const plat of gameState.platforms) {
+        if (plat.isBridge) {
+          ctx.fillStyle = '#2a354c';
+          ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+          ctx.strokeStyle = '#ffe600';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(plat.x, plat.y, plat.w, plat.h);
+        } else {
+          ctx.fillStyle = '#1c2438';
+          ctx.fillRect(plat.x, plat.y, plat.w, plat.h);
+          ctx.fillStyle = '#00f3ff';
+          ctx.fillRect(plat.x, plat.y, plat.w, 2);
+        }
+      }
+
+      for (const cap of gameState.capsules) {
+        if (cap.alive) {
+          ctx.fillStyle = '#ffe600';
+          ctx.beginPath();
+          ctx.arc(cap.x, cap.y, 9, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ff0055';
+          ctx.font = 'bold 9px monospace';
+          ctx.fillText(cap.gun, cap.x - 3, cap.y + 3);
+        }
+      }
+
+      for (const e of gameState.enemies) {
+        if (e.type === 'runner') {
+          ctx.fillStyle = '#ff0055';
+          ctx.fillRect(e.x - 7, e.y - 12, 14, 24);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(e.x + (e.vx > 0 ? 2 : -5), e.y - 9, 3, 3);
+        } else if (e.type === 'turret') {
+          ctx.fillStyle = '#334155';
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, 14, 0, Math.PI * 2);
+          ctx.fill();
+          const ang = Math.atan2(gameState.player.y - e.y, gameState.player.x - e.x);
+          ctx.strokeStyle = '#ff0055';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(e.x, e.y);
+          ctx.lineTo(e.x + Math.cos(ang) * 16, e.y + Math.sin(ang) * 16);
+          ctx.stroke();
+        } else if (e.type === 'sniper') {
+          ctx.fillStyle = '#10b981';
+          ctx.fillRect(e.x - 6, e.y - 12, 12, 24);
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(e.x + (gameState.player.x < e.x ? -10 : 4), e.y - 4, 8, 3);
+        }
+      }
+
+      const boss = gameState.boss;
+      if (boss && boss.hp > 0) {
+        if (boss.type === 'fortress') {
+          ctx.fillStyle = '#1e293b';
+          ctx.fillRect(boss.x, boss.y, boss.w, boss.h);
+
+          if (boss.tTopHp > 0) {
+            ctx.fillStyle = '#ffe600';
+            ctx.fillRect(boss.x - 8, boss.y + 22, 16, 16);
+          }
+          if (boss.tBotHp > 0) {
+            ctx.fillStyle = '#ffe600';
+            ctx.fillRect(boss.x - 8, boss.y + 122, 16, 16);
+          }
+
+          const isShielded = boss.tTopHp > 0 || boss.tBotHp > 0;
+          ctx.fillStyle = isShielded ? '#00f3ff' : `rgba(255, 0, 85, ${0.6 + Math.sin(boss.pulse) * 0.35})`;
+          ctx.beginPath();
+          ctx.arc(boss.x + 18, boss.coreY, 18, 0, Math.PI * 2);
+          ctx.fill();
+
+          drawHPBar(ctx, boss.x - 10, boss.y - 14, 80, boss.hp, boss.maxHp);
+        } else if (boss.type === 'gunship') {
+          ctx.fillStyle = '#475569';
+          ctx.fillRect(boss.x - 30, boss.y - 10, 60, 24);
+          ctx.fillStyle = '#ff0055';
+          ctx.fillRect(boss.x - 15, boss.y + 14, 30, 6);
+          drawHPBar(ctx, boss.x - 40, boss.y - 24, 80, boss.hp, boss.maxHp);
+        } else if (boss.type === 'brain') {
+          ctx.fillStyle = '#ec4899';
+          ctx.beginPath();
+          ctx.arc(boss.x, boss.y, 38, 0, Math.PI * 2);
+          ctx.fill();
+          drawHPBar(ctx, boss.x - 45, boss.y - 50, 90, boss.hp, boss.maxHp);
+        }
+      }
+
+      for (const b of gameState.bullets) {
+        ctx.fillStyle = b.color;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#ff0055';
+      for (const eb of gameState.enemyBullets) {
+        ctx.beginPath();
+        ctx.arc(eb.x, eb.y, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      gameState.player.draw(ctx);
+      FX.draw(ctx);
+
+      ctx.restore();
+      ctx.restore();
+    }
+
+    function drawHPBar(c, x, y, w, val, max) {
+      c.fillStyle = 'rgba(0,0,0,0.6)';
+      c.fillRect(x, y, w, 6);
+      c.fillStyle = '#ff0055';
+      c.fillRect(x, y, (val / max) * w, 6);
+    }
+
+    function loop() {
+      // ตรวจสอบและดึงขนาดจอทันทีที่ระบบคำนวณ Layout เสร็จสิ้น
+      if (!canvas.style.width || canvas.style.width === '0px' || canvas.clientWidth === 0) {
+        resizeCanvas();
+      }
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    initStage(1);
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
