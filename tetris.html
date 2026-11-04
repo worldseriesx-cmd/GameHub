@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Neon Tetrix: Overdrive</title>
+  <style>
+    :root {
+      --bg: #060712;
+      --panel-bg: rgba(18, 22, 38, 0.85);
+      --cyan: #00f3ff;
+      --pink: #ff0055;
+      --yellow: #ffe600;
+      --green: #00ff66;
+      --purple: #b5179e;
+      --orange: #ff9100;
+      --blue: #2979ff;
+    }
+
+    /* ล็อกการซูมและ Gesture ทุกรูปแบบบน iPad Chrome & Safari */
+    html, body, #viewport, canvas, #controls, button {
+      touch-action: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      overscroll-behavior: none !important;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      opacity: 0.5;
+    }
+
+    header {
+      height: 48px;
+      background: rgba(14, 18, 30, 0.96);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+      gap: 12px;
+    }
+    .hud-left, .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .game-badge {
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--cyan);
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.6);
+    }
+    .hud-text {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--yellow);
+    }
+    .btn-action {
+      background: #1e2438;
+      border: 1px solid #3d486c;
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      touch-action: manipulation;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-action:active {
+      transform: scale(0.95);
+      border-color: var(--cyan);
+    }
+
+    #viewport {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      overflow: hidden;
+      gap: 12px;
+      padding: 8px;
+    }
+
+    /* Sub panels for Hold & Next */
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      width: 72px;
+    }
+    .panel-box {
+      background: var(--panel-bg);
+      border: 1px solid rgba(0, 243, 255, 0.2);
+      border-radius: 8px;
+      padding: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .panel-title {
+      font-size: 0.65rem;
+      font-weight: 800;
+      font-family: monospace;
+      color: var(--cyan);
+      margin-bottom: 4px;
+      letter-spacing: 1px;
+    }
+    .mini-canvas {
+      width: 60px;
+      height: 60px;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 4px;
+    }
+
+    canvas#tetrisCanvas {
+      display: block;
+      box-shadow: 0 0 40px rgba(0, 243, 255, 0.15);
+      border: 2px solid rgba(0, 243, 255, 0.3);
+      border-radius: 4px;
+    }
+
+    /* Touch Controls Dock */
+    #controls {
+      height: 190px;
+      background: rgba(10, 13, 24, 0.98);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+    }
+    .dpad-container {
+      display: grid;
+      grid-template-columns: repeat(3, 56px);
+      grid-template-rows: repeat(3, 56px);
+      gap: 4px;
+    }
+    .dbtn {
+      background: #182035;
+      border: 1px solid #2d385e;
+      color: #fff;
+      font-size: 1.3rem;
+      font-weight: 900;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px #0c101c;
+      touch-action: none;
+    }
+    .dbtn:active, .dbtn.active {
+      background: var(--cyan) !important;
+      color: #000 !important;
+      transform: translateY(2px);
+      box-shadow: 0 2px #0c101c;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+    .abtn {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      background: #202742;
+      border: 2px solid;
+      font-size: 1.15rem;
+      font-weight: 900;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 5px #0d111e;
+      touch-action: none;
+    }
+    .abtn span {
+      font-size: 0.6rem;
+      font-weight: normal;
+      opacity: 0.75;
+    }
+    .btn-rot { border-color: var(--green); }
+    .btn-hard { border-color: var(--yellow); }
+    .btn-hold { border-color: var(--purple); }
+    .btn-rot:active, .btn-rot.active { background: var(--green); color: #000; transform: translateY(3px); }
+    .btn-hard:active, .btn-hard.active { background: var(--yellow); color: #000; transform: translateY(3px); }
+    .btn-hold:active, .btn-hold.active { background: var(--purple); color: #000; transform: translateY(3px); }
+
+    /* Modals */
+    .overlay-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 19, 0.94);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+    }
+    .modal-title {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--pink);
+      text-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+    }
+    .modal-desc {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      font-family: monospace;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .modal-btn {
+      background: var(--cyan);
+      border: none;
+      color: #000;
+      font-weight: 900;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+      touch-action: manipulation;
+    }
+    .modal-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <header>
+    <div class="hud-left">
+      <div class="game-badge">🧩 NEON TETRIX</div>
+      <div class="hud-text" id="score-val">SCORE: 00000</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-text" id="level-val">LV: 1</div>
+      <div class="hud-text" id="lines-val">LINES: 0</div>
+      <a href="index.html" class="btn-action">🔙 MENU</a>
+    </div>
+  </header>
+
+  <div id="viewport">
+    <!-- Hold Box -->
+    <div class="side-panel">
+      <div class="panel-box">
+        <div class="panel-title">HOLD</div>
+        <canvas class="mini-canvas" id="holdCanvas" width="60" height="60"></canvas>
+      </div>
+    </div>
+
+    <!-- Main Game Matrix -->
+    <canvas id="tetrisCanvas" width="200" height="400"></canvas>
+
+    <!-- Next Box -->
+    <div class="side-panel">
+      <div class="panel-box">
+        <div class="panel-title">NEXT</div>
+        <canvas class="mini-canvas" id="nextCanvas" width="60" height="60"></canvas>
+      </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="overlay-modal" id="game-over-modal">
+      <div class="modal-title">MATRIX OVERLOAD</div>
+      <div class="modal-desc" id="final-stats">SCORE: 00000<br>LINES CLEARED: 0</div>
+      <button class="modal-btn" onclick="restartGame()">RESTART (CONTINUE)</button>
+    </div>
+  </div>
+
+  <!-- Touch Controls -->
+  <div id="controls">
+    <div class="dpad-container">
+      <div></div>
+      <button class="dbtn" data-act="hard">▲</button>
+      <div></div>
+      <button class="dbtn" data-act="left">◀</button>
+      <div></div>
+      <button class="dbtn" data-act="right">▶</button>
+      <div></div>
+      <button class="dbtn" data-act="down">▼</button>
+      <div></div>
+    </div>
+
+    <div class="action-group">
+      <button class="abtn btn-hold" data-act="hold">📥<span>HOLD</span></button>
+      <button class="abtn btn-hard" data-act="hard">⚡<span>DROP</span></button>
+      <button class="abtn btn-rot" data-act="rot">⤾<span>ROTATE</span></button>
+    </div>
+  </div>
+
+  <script>
+    // --- ป้องกันจอซูมบน Chrome & Safari บน iPad ---
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    // --- Audio Synthesizer ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playTone(freq, type, dur, endFreq = null, gainVal = 0.1) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + dur);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + dur);
+        } catch(e) {}
+      },
+      move() { this.playTone(300, 'square', 0.04, 150, 0.06); },
+      rotate() { this.playTone(450, 'triangle', 0.06, 750, 0.09); },
+      drop() { this.playTone(180, 'sine', 0.08, 60, 0.12); },
+      hardDrop() { this.playTone(120, 'square', 0.14, 30, 0.18); },
+      hold() { this.playTone(550, 'sine', 0.08, 900, 0.1); },
+      clear(lines) {
+        if (!this.ctx) return;
+        const freqs = lines >= 4 ? [440, 554, 659, 880] : [523, 659, 783];
+        freqs.forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'sine', 0.12, null, 0.14), i * 50);
+        });
+      },
+      gameOver() { this.playTone(140, 'sawtooth', 0.35, 30, 0.2); }
+    };
+
+    // --- Particle Engine ---
+    const FX = {
+      particles: [],
+      shake: 0,
+      addClear(y, color = '#00f3ff') {
+        this.shake = 8;
+        for (let i = 0; i < 24; i++) {
+          this.particles.push({
+            x: Math.random() * 200,
+            y: y * 20 + 10,
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 4,
+            color,
+            life: 20 + Math.random() * 10,
+            maxLife: 30,
+            r: 2 + Math.random() * 2.5
+          });
+        }
+      },
+      update() {
+        if (this.shake > 0) this.shake *= 0.85;
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.92; p.vy *= 0.92;
+          if (--p.life <= 0) this.particles.splice(i, 1);
+        }
+      },
+      draw(c) {
+        for (const p of this.particles) {
+          c.fillStyle = p.color;
+          c.beginPath();
+          c.arc(p.x, p.y, Math.max(0.5, p.r * (p.life / p.maxLife)), 0, Math.PI * 2);
+          c.fill();
+        }
+      }
+    };
+
+    // --- Canvas & Responsiveness ---
+    const canvas = document.getElementById('tetrisCanvas');
+    const ctx = canvas.getContext('2d');
+    const holdCanvas = document.getElementById('holdCanvas');
+    const holdCtx = holdCanvas.getContext('2d');
+    const nextCanvas = document.getElementById('nextCanvas');
+    const nextCtx = nextCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      const vp = document.getElementById('viewport');
+      const maxH = vp.clientHeight - 16;
+      const targetW = maxH * (200 / 400);
+      canvas.style.height = `${maxH}px`;
+      canvas.style.width = `${targetW}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- Tetris Pieces Definition ---
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK = 20;
+
+    const PIECES = {
+      'I': { shape: [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], color: '#00f3ff' },
+      'J': { shape: [[1,0,0],[1,1,1],[0,0,0]], color: '#2979ff' },
+      'L': { shape: [[0,0,1],[1,1,1],[0,0,0]], color: '#ff9100' },
+      'O': { shape: [[1,1],[1,1]], color: '#ffe600' },
+      'S': { shape: [[0,1,1],[1,1,0],[0,0,0]], color: '#00ff66' },
+      'T': { shape: [[0,1,0],[1,1,1],[0,0,0]], color: '#b5179e' },
+      'Z': { shape: [[1,1,0],[0,1,1],[0,0,0]], color: '#ff0055' }
+    };
+    const PIECE_KEYS = Object.keys(PIECES);
+
+    // --- Game Logic ---
+    const game = {
+      grid: Array(ROWS).fill(null).map(() => Array(COLS).fill(0)),
+      score: 0,
+      lines: 0,
+      level: 1,
+      current: null,
+      next: null,
+      hold: null,
+      canHold: true,
+      dropCounter: 0,
+      paused: false
+    };
+
+    function randomPiece() {
+      const key = PIECE_KEYS[Math.floor(Math.random() * PIECE_KEYS.length)];
+      const p = PIECES[key];
+      return {
+        key: key,
+        shape: p.shape.map(row => [...row]),
+        color: p.color,
+        x: Math.floor(COLS / 2) - Math.ceil(p.shape[0].length / 2),
+        y: 0
+      };
+    }
+
+    function collide(grid, piece, offX = 0, offY = 0) {
+      for (let r = 0; r < piece.shape.length; r++) {
+        for (let c = 0; c < piece.shape[r].length; c++) {
+          if (piece.shape[r][c] !== 0) {
+            const nx = piece.x + c + offX;
+            const ny = piece.y + r + offY;
+            if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+            if (ny >= 0 && grid[ny][nx] !== 0) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function rotate(matrix) {
+      const N = matrix.length;
+      return matrix[0].map((val, index) => matrix.map(row => row[index]).reverse());
+    }
+
+    function playerRotate() {
+      const rotated = rotate(game.current.shape);
+      const original = game.current.shape;
+      game.current.shape = rotated;
+      // Basic wall kick
+      let offset = 0;
+      if (collide(game.grid, game.current)) {
+        offset = collide(game.grid, game.current, 1, 0) ? -1 : 1;
+        game.current.x += offset;
+        if (collide(game.grid, game.current)) {
+          game.current.x -= offset;
+          game.current.shape = original; // Revert
+          return;
+        }
+      }
+      AudioEngine.rotate();
+    }
+
+    function playerMove(dir) {
+      if (!collide(game.grid, game.current, dir, 0)) {
+        game.current.x += dir;
+        AudioEngine.move();
+      }
+    }
+
+    function playerDrop() {
+      if (!collide(game.grid, game.current, 0, 1)) {
+        game.current.y++;
+        game.dropCounter = 0;
+      } else {
+        lockPiece();
+      }
+    }
+
+    function playerHardDrop() {
+      let dropped = 0;
+      while (!collide(game.grid, game.current, 0, 1)) {
+        game.current.y++;
+        dropped++;
+      }
+      game.score += dropped * 2;
+      AudioEngine.hardDrop();
+      lockPiece();
+    }
+
+    function playerHold() {
+      if (!game.canHold) return;
+      AudioEngine.hold();
+      if (!game.hold) {
+        game.hold = PIECES[game.current.key];
+        game.hold.key = game.current.key;
+        spawnNext();
+      } else {
+        const tempKey = game.hold.key;
+        game.hold = PIECES[game.current.key];
+        game.hold.key = game.current.key;
+        game.current = {
+          key: tempKey,
+          shape: PIECES[tempKey].shape.map(r => [...r]),
+          color: PIECES[tempKey].color,
+          x: Math.floor(COLS / 2) - Math.ceil(PIECES[tempKey].shape[0].length / 2),
+          y: 0
+        };
+      }
+      game.canHold = false;
+      drawPreview(holdCtx, game.hold);
+    }
+
+    function lockPiece() {
+      AudioEngine.drop();
+      game.current.shape.forEach((row, r) => {
+        row.forEach((val, c) => {
+          if (val !== 0) {
+            const ny = game.current.y + r;
+            const nx = game.current.x + c;
+            if (ny >= 0 && ny < ROWS) {
+              game.grid[ny][nx] = game.current.color;
+            }
+          }
+        });
+      });
+
+      clearLines();
+      game.canHold = true;
+      spawnNext();
+
+      if (collide(game.grid, game.current)) {
+        AudioEngine.gameOver();
+        showGameOver();
+      }
+    }
+
+    function clearLines() {
+      let linesCleared = 0;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (game.grid[r].every(cell => cell !== 0)) {
+          linesCleared++;
+          FX.addClear(r, '#00f3ff');
+          game.grid.splice(r, 1);
+          game.grid.unshift(Array(COLS).fill(0));
+          r++; // Recheck same row index
+        }
+      }
+
+      if (linesCleared > 0) {
+        AudioEngine.clear(linesCleared);
+        const lineScores = [0, 100, 300, 500, 800];
+        game.score += (lineScores[linesCleared] || 1000) * game.level;
+        game.lines += linesCleared;
+        game.level = Math.floor(game.lines / 10) + 1;
+        updateHUD();
+      }
+    }
+
+    function spawnNext() {
+      if (!game.next) game.next = randomPiece();
+      game.current = game.next;
+      game.next = randomPiece();
+      drawPreview(nextCtx, game.next);
+      drawPreview(holdCtx, game.hold);
+      game.dropCounter = 0;
+    }
+
+    function drawPreview(c, piece) {
+      c.clearRect(0, 0, 60, 60);
+      if (!piece) return;
+      const shape = piece.shape;
+      const size = 12;
+      const offX = (60 - shape[0].length * size) / 2;
+      const offY = (60 - shape.length * size) / 2;
+
+      c.fillStyle = piece.color;
+      shape.forEach((row, r) => {
+        row.forEach((val, col) => {
+          if (val !== 0) {
+            c.fillRect(offX + col * size, offY + r * size, size - 1, size - 1);
+          }
+        });
+      });
+    }
+
+    function updateHUD() {
+      document.getElementById('score-val').innerText = `SCORE: ${String(game.score).padStart(5, '0')}`;
+      document.getElementById('level-val').innerText = `LV: ${game.level}`;
+      document.getElementById('lines-val').innerText = `LINES: ${game.lines}`;
+    }
+
+    function showGameOver() {
+      game.paused = true;
+      document.getElementById('final-stats').innerHTML = `SCORE: ${game.score}<br>LINES CLEARED: ${game.lines}<br>LEVEL REACHED: ${game.level}`;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    function restartGame() {
+      game.grid = Array(ROWS).fill(null).map(() => Array(COLS).fill(0));
+      game.score = 0;
+      game.lines = 0;
+      game.level = 1;
+      game.hold = null;
+      game.canHold = true;
+      game.paused = false;
+      document.getElementById('game-over-modal').style.display = 'none';
+      spawnNext();
+      updateHUD();
+    }
+
+    // Touch Event Bindings
+    document.querySelectorAll('[data-act]').forEach(btn => {
+      const act = btn.getAttribute('data-act');
+      btn.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        AudioE
