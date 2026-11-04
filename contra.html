@@ -117,7 +117,6 @@
       width: 100%;
     }
 
-    /* ป้องกัน Canvas ยุบตัวเป็น 0px ด้วย CSS Fallback */
     canvas {
       display: block;
       max-width: 100%;
@@ -373,21 +372,27 @@
       }
     };
 
+    // แยก Input สำหรับเล็ง (Aim) และเคลื่อนที่ (Move)
     const Input = {
       up: false, down: false, left: false, right: false,
+      moveLeft: false, moveRight: false,
       a: false, b: false,
-      resetDirs() { this.up = this.down = this.left = this.right = false; }
+      resetDirs() {
+        this.up = this.down = this.left = this.right = false;
+        this.moveLeft = this.moveRight = false;
+      }
     };
 
+    // ปุ่มทแยงจะสั่งเล็ง (Aim) แต่ moveLeft/moveRight จะเป็น false ทำให้ขาไม่ขยับ
     const dirMap = {
-      'up':        { up: true,  down: false, left: false, right: false },
-      'down':      { up: false, down: true,  left: false, right: false },
-      'left':      { up: false, down: false, left: true,  right: false },
-      'right':     { up: false, down: false, left: false, right: true },
-      'upleft':    { up: true,  down: false, left: true,  right: false },
-      'upright':   { up: true,  down: false, left: false, right: true },
-      'downleft':  { up: false, down: true,  left: true,  right: false },
-      'downright': { up: false, down: true,  left: false, right: true }
+      'up':        { up: true,  down: false, left: false, right: false, moveLeft: false, moveRight: false },
+      'down':      { up: false, down: true,  left: false, right: false, moveLeft: false, moveRight: false },
+      'left':      { up: false, down: false, left: true,  right: false, moveLeft: true,  moveRight: false },
+      'right':     { up: false, down: false, left: false, right: true,  moveLeft: false, moveRight: true },
+      'upleft':    { up: true,  down: false, left: true,  right: false, moveLeft: false, moveRight: false },
+      'upright':   { up: true,  down: false, left: false, right: true,  moveLeft: false, moveRight: false },
+      'downleft':  { up: false, down: true,  left: true,  right: false, moveLeft: false, moveRight: false },
+      'downright': { up: false, down: true,  left: false, right: true,  moveLeft: false, moveRight: false }
     };
 
     document.querySelectorAll('[data-dir]').forEach(btn => {
@@ -398,6 +403,7 @@
           const cfg = dirMap[dirKey];
           Input.up = cfg.up; Input.down = cfg.down;
           Input.left = cfg.left; Input.right = cfg.right;
+          Input.moveLeft = cfg.moveLeft; Input.moveRight = cfg.moveRight;
           btn.classList.add('active');
         } else {
           Input.resetDirs();
@@ -425,16 +431,16 @@
       AudioEngine.init();
       if (e.code === 'ArrowUp' || e.key === 'w') Input.up = true;
       if (e.code === 'ArrowDown' || e.key === 's') Input.down = true;
-      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = true;
-      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = true;
+      if (e.code === 'ArrowLeft' || e.key === 'a') { Input.left = true; Input.moveLeft = true; }
+      if (e.code === 'ArrowRight' || e.key === 'd') { Input.right = true; Input.moveRight = true; }
       if (e.code === 'Space' || e.key === 'k') Input.a = true;
       if (e.key === 'j' || e.key === 'z') Input.b = true;
     });
     window.addEventListener('keyup', (e) => {
       if (e.code === 'ArrowUp' || e.key === 'w') Input.up = false;
       if (e.code === 'ArrowDown' || e.key === 's') Input.down = false;
-      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = false;
-      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = false;
+      if (e.code === 'ArrowLeft' || e.key === 'a') { Input.left = false; Input.moveLeft = false; }
+      if (e.code === 'ArrowRight' || e.key === 'd') { Input.right = false; Input.moveRight = false; }
       if (e.code === 'Space' || e.key === 'k') Input.a = false;
       if (e.key === 'j' || e.key === 'z') Input.b = false;
     });
@@ -510,13 +516,12 @@
     const canvas = document.getElementById('contraCanvas');
     const ctx = canvas.getContext('2d');
 
-    // ปรับปรุงฟังก์ชันคำนวณขนาดจอ ป้องกันการยุบตัวเป็น 0px อย่างเด็ดขาด
     function resizeCanvas() {
       const vp = document.getElementById('viewport');
       if (!vp) return;
       const cw = vp.clientWidth;
       const ch = vp.clientHeight;
-      if (cw < 40 || ch < 40) return; // หากยังไม่เริ่ม Render layout ให้ข้ามไปก่อน
+      if (cw < 40 || ch < 40) return;
 
       const targetRatio = 480 / 270;
       let finalW = cw;
@@ -576,29 +581,33 @@
         const left = Input.left;
         const right = Input.right;
 
+        // หันหน้าตามทิศทางที่เล็ง
         if (left) this.facing = -1;
         if (right) this.facing = 1;
 
+        // หมอบนอนราบเมื่อกดปุ่มลงอย่างเดียว
         this.crouch = down && this.grounded && !left && !right;
 
+        // ทิศทางการเล็งปืน (8 ทิศทาง)
         if (this.crouch) {
           this.aimDir = { x: this.facing, y: 0 };
         } else if (up && (left || right)) {
-          this.aimDir = { x: this.facing * 0.707, y: -0.707 };
+          this.aimDir = { x: this.facing * 0.707, y: -0.707 }; // เฉียงขึ้น 45°
         } else if (down && (left || right)) {
-          this.aimDir = { x: this.facing * 0.707, y: 0.707 };
+          this.aimDir = { x: this.facing * 0.707, y: 0.707 };  // เฉียงลง 45°
         } else if (up) {
-          this.aimDir = { x: 0, y: -1 };
+          this.aimDir = { x: 0, y: -1 };                        // เล็งขึ้นตรงๆ
         } else if (down && !this.grounded) {
-          this.aimDir = { x: 0, y: 1 };
+          this.aimDir = { x: 0, y: 1 };                         // ทิ้งดิ่งลงกลางอากาศ
         } else {
-          this.aimDir = { x: this.facing, y: 0 };
+          this.aimDir = { x: this.facing, y: 0 };              // เล็งตรงไปข้างหน้า
         }
 
+        // การขยับขา: เดินเฉพาะเมื่อมีคำสั่ง moveLeft หรือ moveRight เท่านั้น (ปุ่มทแยงจะยืนนิ่ง)
         if (!this.crouch) {
-          if (left) this.vx = -2.8;
-          else if (right) this.vx = 2.8;
-          else this.vx = 0;
+          if (Input.moveLeft) this.vx = -2.8;
+          else if (Input.moveRight) this.vx = 2.8;
+          else this.vx = 0; // ยืนนิ่ง ขาไม่ขยับ
         } else {
           this.vx = 0;
         }
@@ -731,10 +740,12 @@
           c.fillStyle = '#cbd5e1';
           c.fillRect(this.facing > 0 ? 12 : -18, 6, this.facing * 8, 3);
         } else {
+          // ลำตัวยืนนิ่งมั่นคง
           c.fillStyle = '#00f3ff';
           c.fillRect(-5, -12, 10, 24);
           c.fillStyle = '#ff0055';
           c.fillRect(-6, -12, 12, 4);
+          // ขยับปากกระบอกปืนเล็งตามทิศทาง aimDir
           c.fillStyle = '#ffffff';
           const bx = this.aimDir.x * 12;
           const by = this.aimDir.y * 12;
@@ -1281,7 +1292,6 @@
     }
 
     function loop() {
-      // ตรวจสอบและดึงขนาดจอทันทีที่ระบบคำนวณ Layout เสร็จสิ้น
       if (!canvas.style.width || canvas.style.width === '0px' || canvas.clientWidth === 0) {
         resizeCanvas();
       }
