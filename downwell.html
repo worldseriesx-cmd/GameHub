@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Neon Downwell</title>
+  <style>
+    :root {
+      --bg: #05060b;
+      --cyan: #00f3ff;
+      --pink: #ff0055;
+      --yellow: #ffe600;
+      --green: #00ff66;
+    }
+
+    html, body, #viewport, canvas, #controls, button {
+      touch-action: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      overscroll-behavior: none !important;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      opacity: 0.55;
+    }
+
+    header {
+      height: 48px;
+      background: rgba(14, 18, 30, 0.96);
+      border-bottom: 1px solid rgba(0, 243, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+      gap: 12px;
+    }
+    .hud-left, .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .game-badge {
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--cyan);
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+    }
+    .hud-text {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--yellow);
+    }
+    .btn-action {
+      background: #1e2438;
+      border: 1px solid #3d486c;
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      touch-action: manipulation;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-action:active {
+      transform: scale(0.95);
+      border-color: var(--cyan);
+    }
+
+    #viewport {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 0 40px rgba(0, 243, 255, 0.15);
+    }
+
+    /* Ergonomic Touch Dock */
+    #controls {
+      height: 190px;
+      background: rgba(10, 13, 24, 0.98);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+    }
+    .dpad-row {
+      display: flex;
+      gap: 12px;
+    }
+    .dbtn {
+      width: 72px;
+      height: 72px;
+      background: #1a2238;
+      border: 1px solid #33426d;
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: 900;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px #0c101c;
+    }
+    .dbtn:active, .dbtn.active {
+      background: var(--cyan);
+      color: #000;
+      transform: translateY(2px);
+      box-shadow: 0 2px #0c101c;
+    }
+
+    .action-group {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    .abtn {
+      width: 76px;
+      height: 76px;
+      border-radius: 50%;
+      background: #202742;
+      border: 2px solid;
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 5px #0d111e;
+    }
+    .abtn span {
+      font-size: 0.65rem;
+      font-weight: normal;
+      opacity: 0.7;
+    }
+    .btn-a { border-color: var(--cyan); }
+    .btn-b { border-color: var(--pink); }
+    .btn-a:active, .btn-a.active { background: var(--cyan); color: #000; transform: translateY(3px); }
+    .btn-b:active, .btn-b.active { background: var(--pink); color: #000; transform: translateY(3px); }
+
+    .overlay-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 19, 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+    }
+    .modal-title {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--pink);
+      text-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+    }
+    .modal-desc {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      font-family: monospace;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .modal-btn {
+      background: var(--cyan);
+      border: none;
+      color: #000;
+      font-weight: 900;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 243, 255, 0.4);
+      touch-action: manipulation;
+    }
+    .modal-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <header>
+    <div class="hud-left">
+      <div class="game-badge">🕳️ NEON DOWNWELL</div>
+      <div class="hud-text" id="depth-val">DEPTH: 000m</div>
+      <div class="hud-text" id="gems-val">💎 000</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-text" id="ammo-val" style="color:var(--cyan);">BOOTS: 8/8</div>
+      <div class="hud-text" id="hp-val">❤❤❤❤</div>
+      <a href="index.html" class="btn-action">🔙 MENU</a>
+    </div>
+  </header>
+
+  <div id="viewport">
+    <canvas id="downwellCanvas" width="480" height="270"></canvas>
+
+    <div class="overlay-modal" id="game-over-modal">
+      <div class="modal-title">CRUSHED IN DEPTHS!</div>
+      <div class="modal-desc" id="final-stats">DEPTH: 000m<br>GEMS COLLECTED: 000</div>
+      <button class="modal-btn" onclick="restartGame()">DIVE AGAIN (CONTINUE)</button>
+    </div>
+  </div>
+
+  <!-- Touch Controls -->
+  <div id="controls">
+    <div class="dpad-row">
+      <button class="dbtn" data-key="left">◀</button>
+      <button class="dbtn" data-key="right">▶</button>
+    </div>
+
+    <div class="action-group">
+      <button class="abtn btn-b" data-key="b">B<span>RAPID</span></button>
+      <button class="abtn btn-a" data-key="a">A<span>JUMP/FIRE</span></button>
+    </div>
+  </div>
+
+  <script>
+    // --- ป้องกันจอซูมบน Chrome & Safari บน iPad ---
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    // --- Audio Synthesizer ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playTone(freq, type, dur, endFreq = null, gainVal = 0.12) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + dur);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + dur);
+        } catch(e) {}
+      },
+      shoot() { this.playTone(850, 'square', 0.07, 180, 0.14); },
+      stomp() {
+        if (!this.ctx) return;
+        [520, 780, 1040].forEach((f, i) => {
+          setTimeout(() => this.playTone(f, 'sine', 0.1, null, 0.14), i * 40);
+        });
+      },
+      reload() { this.playTone(400, 'triangle', 0.06, 900, 0.1); },
+      gem() { this.playTone(1100, 'triangle', 0.08, null, 0.08); },
+      hit() { this.playTone(120, 'sawtooth', 0.1, 40, 0.2); },
+      boom() { this.playTone(90, 'square', 0.25, 20, 0.22); }
+    };
+
+    // --- Input Management ---
+    const Input = {
+      left: false, right: false,
+      a: false, b: false
+    };
+
+    function bindTouch(btn, key) {
+      const setKey = (active) => {
+        AudioEngine.init();
+        Input[key] = active;
+        if (active) btn.classList.add('active'); else btn.classList.remove('active');
+      };
+      btn.addEventListener('pointerdown', (e) => { e.preventDefault(); setKey(true); });
+      btn.addEventListener('pointerup', (e) => { e.preventDefault(); setKey(false); });
+      btn.addEventListener('pointercancel', (e) => { e.preventDefault(); setKey(false); });
+    }
+
+    document.querySelectorAll('[data-key]').forEach(b => bindTouch(b, b.getAttribute('data-key')));
+
+    window.addEventListener('keydown', (e) => {
+      AudioEngine.init();
+      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = true;
+      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = true;
+      if (e.code === 'Space' || e.key === 'k') Input.a = true;
+      if (e.key === 'j' || e.key === 'z') Input.b = true;
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'ArrowLeft' || e.key === 'a') Input.left = false;
+      if (e.code === 'ArrowRight' || e.key === 'd') Input.right = false;
+      if (e.code === 'Space' || e.key === 'k') Input.a = false;
+      if (e.key === 'j' || e.key === 'z') Input.b = false;
+    });
+
+    // --- Canvas Responsiveness ---
+    const canvas = document.getElementById('downwellCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const vp = document.getElementById('viewport');
+      const ratio = 480 / 270;
+      let w = vp.clientWidth;
+      let h = vp.clientWidth / ratio;
+      if (h > vp.clientHeight) {
+        h = vp.clientHeight;
+        w = vp.clientHeight * ratio;
+      }
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- Particle & Text VFX ---
+    const FX = {
+      particles: [],
+      texts: [],
+      shake: 0,
+      addExplosion(x, y, color = '#00f3ff', count = 12) {
+        this.shake = Math.min(this.shake + 5, 12);
+        for (let i = 0; i < count; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 2 + Math.random() * 4;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd,
+            color,
+            life: 16 + Math.random() * 10,
+            maxLife: 26,
+            r: 2 + Math.random() * 2.5
+          });
+        }
+      },
+      addText(x, y, str, color = '#ffe600') {
+        this.texts.push({ x, y, str, color, life: 35, vy: -1.2 });
+      },
+      update() {
+        if (this.shake > 0) this.shake *= 0.86;
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.95; p.vy += 0.15;
+          if (--p.life <= 0) this.particles.splice(i, 1);
+        }
+        for (let i = this.texts.length - 1; i >= 0; i--) {
+          const t = this.texts[i];
+          t.y += t.vy;
+          if (--t.life <= 0) this.texts.splice(i, 1);
+        }
+      },
+      draw(c) {
+        for (const p of this.particles) {
+          c.fillStyle = p.color;
+          c.beginPath();
+          c.arc(p.x, p.y, Math.max(0.5, p.r * (p.life / p.maxLife)), 0, Math.PI * 2);
+          c.fill();
+        }
+        for (const t of this.texts) {
+          c.save();
+          c.font = 'bold 11px monospace';
+          c.fillStyle = t.color;
+          c.shadowColor = t.color;
+          c.shadowBlur = 6;
+          c.fillText(t.str, t.x - c.measureText(t.str).width / 2, t.y);
+          c.restore();
+        }
+      }
+    };
+
+    // --- Well Configuration ---
+    const WELL_LEFT = 140;
+    const WELL_RIGHT = 340;
+    const WELL_WIDTH = WELL_RIGHT - WELL_LEFT; // 200px width
+
+    // --- Game Logic ---
+    const game = {
+      score: 0,
+      gems: 0,
+      depth: 0,
+      camY: 0,
+      generatedY: 100,
+      paused: false,
+      player: {
+        x: 240,
+        y: 40,
+        vx: 0,
+        vy: 0,
+        w: 14,
+        h: 18,
+        grounded: false,
+        ammo: 8,
+        maxAmmo: 8,
+        hp: 4,
+        maxHp: 4,
+        shootCd: 0,
+        invuln: 0
+      },
+      bullets: [],
+      enemies: [],
+      blocks: [],
+      gemsList: []
+    };
+
+    function generateChunk(toY) {
+      while (game.generatedY < toY) {
+        const y = game.generatedY;
+
+        // Platform patterns
+        const pattern = Math.floor(Math.random() * 4);
+        if (pattern === 0) {
+          // Left ledge
+          game.blocks.push({ x: WELL_LEFT, y, w: 75, h: 12, destructible: false });
+          // Breakable brick in middle
+          game.blocks.push({ x: WELL_LEFT + 100, y: y + 25, w: 30, h: 16, destructible: true, hp: 2 });
+        } else if (pattern === 1) {
+          // Right ledge
+          game.blocks.push({ x: WELL_RIGHT - 75, y, w: 75, h: 12, destructible: false });
+          // Breakable brick
+          game.blocks.push({ x: WELL_LEFT + 70, y: y + 25, w: 30, h: 16, destructible: true, hp: 2 });
+        } else if (pattern === 2) {
+          // Center floating island
+          game.blocks.push({ x: WELL_LEFT + 55, y, w: 90, h: 12, destructible: false });
+        } else {
+          // Breakable floor across the shaft
+          for (let bx = WELL_LEFT + 25; bx < WELL_RIGHT - 25; bx += 30) {
+            game.blocks.push({ x: bx, y, w: 26, h: 14, destructible: true, hp: 2 });
+          }
+        }
+
+        // Spawn Enemies
+        if (Math.random() < 0.65) {
+          const isSpike = Math.random() < 0.35; // Red spiky enemy (cannot stomp!)
+          game.enemies.push({
+            x: WELL_LEFT + 30 + Math.random() * (WELL_WIDTH - 60),
+            y: y + 45,
+            vx: (Math.random() < 0.5 ? -1 : 1) * (1.2 + Math.random() * 0.8),
+            vy: 0,
+            w: 16,
+            h: 16,
+            isSpike: isSpike,
+            hp: isSpike ? 2 : 1,
+            color: isSpike ? '#ff0055' : '#00ff66'
+          });
+        }
+
+        // Spawn Gems
+        if (Math.random() < 0.5) {
+          game.gemsList.push({
+            x: WELL_LEFT + 20 + Math.random() * (WELL_WIDTH - 40),
+            y: y + 30
+          });
+        }
+
+        game.generatedY += 65; // Next row distance
+      }
+    }
+
+    function updateHUD() {
+      document.getElementById('depth-val').innerText = `DEPTH: ${String(game.depth).padStart(3, '0')}m`;
+      document.getElementById('gems-val').innerText = `💎 ${String(game.gems).padStart(3, '0')}`;
+      document.getElementById('ammo-val').innerText = `BOOTS: ${game.player.ammo}/${game.player.maxAmmo}`;
+      document.getElementById('hp-val').innerText = '❤'.repeat(game.player.hp) + '🖤'.repeat(game.player.maxHp - game.player.hp);
+    }
+
+    function showGameOver() {
+      game.paused = true;
+      document.getElementById('final-stats').innerHTML = `DEPTH REACHED: ${game.depth}m<br>GEMS: ${game.gems}<br>SCORE: ${game.score}`;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    function restartGame() {
+      game.score = 0;
+      game.gems = 0;
+      game.depth = 0;
+      game.camY = 0;
+      game.generatedY = 100;
+      game.bullets = [];
+      game.enemies = [];
+      game.blocks = [];
+      game.gemsList = [];
+
+      // Starting floor
+      game.blocks.push({ x: WELL_LEFT, y: 70, w: WELL_WIDTH, h: 14, destructible: false });
+
+      const p = game.player;
+      p.x = 240; p.y = 40;
+      p.vx = 0; p.vy = 0;
+      p.ammo = p.maxAmmo;
+      p.hp = p.maxHp;
+      p.grounded = false;
+      p.invuln = 0;
+
+      generateChunk(500);
+      game.paused = false;
+      document.getElementById('game-over-modal').style.display = 'none';
+      updateHUD();
+    }
+
+    function update() {
+      if (game.paused) return;
+
+      const p = game.player;
+      if (p.invuln > 0) p.invuln--;
+
+      // Horizontal movement
+      if (Input.left) p.vx = -3.2;
+      else if (Input.right) p.vx = 3.2;
+      else p.vx *= 0.8;
+
+      p.x += p.vx;
+
+      // Shaft Wall Collisions
+      if (p.x - p.w/2 < WELL_LEFT) { p.x = WELL_LEFT + p.w/2; p.vx = 0; }
+      if (p.x + p.w/2 > WELL_RIGHT) { p.x = WELL_RIGHT - p.w/2; p.vx = 0; }
+
+      // Jump (when on ground)
+      if (Input.a && p.grounded) {
+        p.vy = -5.8;
+        p.grounded = false;
+        AudioEngine.playTone(200, 'sine', 0.1, 450);
+      }
+
+      // Gunboots Firing (in mid-air via A or B)
+      p.shootCd = Math.max(0, p.shootCd - 1);
+      const isFiring = (Input.a || Input.b) && !p.grounded;
+
+      if (isFiring && p.shootCd === 0 && p.ammo > 0) {
+        p.ammo--;
+        p.shootCd = 6;
+        p.vy = Math.min(p.vy - 3.2, -1.8); // Recoil hovering effect!
+
+        // Spawn downward twin-bullets
+        game.bullets.push(
+          { x: p.x - 4, y: p.y + p.h/2, vy: 9 },
+          { x: p.x + 4, y: p.y + p.h/2, vy: 9 }
+        );
+
+        AudioEngine.shoot();
+        FX.addExplosion(p.x, p.y + p.h/2, '#ffe600', 4);
+        updateHUD();
+      }
+
+      // Gravity & Vertical Fall
+      p.vy += 0.35;
+      p.vy = Math.min(p.vy, 7.5); // Terminal velocity
+      p.y += p.vy;
+
+      // Check Platforms / Blocks Collisions
+      p.grounded = false;
+      for (const b of game.blocks) {
+        if (p.x + p.w/2 > b.x && p.x - p.w/2 < b.x + b.w) {
+          if (p.y + p.h/2 >= b.y && p.y + p.h/2 <= b.y + 12 && p.vy >= 0) {
+            p.y = b.y - p.h/2;
+            p.vy = 0;
+            p.grounded = true;
+
+            // Landing Reload!
+            if (p.ammo < p.maxAmmo) {
+              p.ammo = p.maxAmmo;
+              AudioEngine.reload();
+              updateHUD();
+            }
+          }
+        }
+      }
+
+      // Camera Downward Tracking
+      if (p.y - game.camY > 100) {
+        game.camY = p.y - 100;
+      }
+      game.depth = Math.max(game.depth, Math.floor(game.camY / 20));
+      updateHUD();
+
+      // Procedural Generation
+      if (game.camY + 400 > game.generatedY) {
+        generateChunk(game.camY + 600);
+      }
+
+      // Update Bullets
+      for (let bi = game.bullets.length - 1; bi >= 0; bi--) {
+        const b = game.bullets[bi];
+        b.y += b.vy;
+
+        // Bullet hit Blocks
+        let hitBlock = false;
+        for (let ki = game.blocks.length - 1; ki >= 0; ki--) {
+          const blk = game.blocks[ki];
+          if (b.x > blk.x && b.x < blk.x + blk.w && b.y > blk.y && b.y < blk.y + blk.h) {
+            hitBlock = true;
+            if (blk.destructible) {
+              blk.hp--;
+              FX.addExplosion(b.x, b.y, '#94a3b8', 4);
+              if (blk.hp <= 0) {
+                FX.addExplosion(blk.x + blk.w/2, blk.y + blk.h/2, '#00f3ff', 8);
+                AudioEngine.boom();
+                game.blocks.splice(ki, 1);
+                game.score += 25;
+              }
+            }
+            break;
+          }
+        }
+        if (hitBlock || b.y > game.camY 
