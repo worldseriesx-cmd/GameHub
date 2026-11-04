@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Kung Fu Blitz</title>
+  <style>
+    :root {
+      --bg: #070812;
+      --cyan: #00f3ff;
+      --pink: #ff0055;
+      --yellow: #ffe600;
+      --green: #00ff66;
+    }
+
+    html, body, #viewport, canvas, #touch-zones, button {
+      touch-action: none !important;
+      -webkit-touch-callout: none !important;
+      -webkit-user-select: none !important;
+      user-select: none !important;
+      overscroll-behavior: none !important;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.28) 50%);
+      background-size: 100% 4px;
+      z-index: 100;
+      opacity: 0.5;
+    }
+
+    header {
+      height: 48px;
+      background: rgba(14, 18, 30, 0.96);
+      border-bottom: 1px solid rgba(255, 230, 0, 0.25);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      z-index: 10;
+      gap: 12px;
+    }
+    .hud-left, .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .game-badge {
+      font-weight: 900;
+      font-size: 0.95rem;
+      color: var(--yellow);
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 10px rgba(255, 230, 0, 0.5);
+    }
+    .hud-text {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: #cbd5e1;
+    }
+    .hud-combo {
+      color: var(--cyan);
+      font-weight: 900;
+      font-size: 1rem;
+    }
+    .btn-action {
+      background: #1e2438;
+      border: 1px solid #3d486c;
+      color: #cbd5e1;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      text-decoration: none;
+      touch-action: manipulation;
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-action:active {
+      transform: scale(0.95);
+      border-color: var(--cyan);
+    }
+
+    #viewport {
+      flex: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      box-shadow: 0 0 40px rgba(255, 230, 0, 0.15);
+    }
+
+    /* Full-screen Split Touch Control Pads */
+    #touch-zones {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      z-index: 20;
+    }
+    .touch-half {
+      flex: 1;
+      height: 100%;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 24px;
+      background: transparent;
+      opacity: 0.6;
+      transition: background 0.1s;
+    }
+    .touch-half:active, .touch-half.active {
+      background: rgba(255, 230, 0, 0.08);
+      opacity: 1;
+    }
+    .zone-indicator {
+      background: rgba(18, 22, 38, 0.75);
+      border: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      padding: 14px 28px;
+      font-weight: 900;
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      color: #fff;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+    }
+    .zone-left .zone-indicator { border-color: var(--cyan); color: var(--cyan); }
+    .zone-right .zone-indicator { border-color: var(--pink); color: var(--pink); }
+
+    .overlay-modal {
+      position: absolute;
+      inset: 0;
+      background: rgba(7, 9, 19, 0.92);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 50;
+    }
+    .modal-title {
+      font-size: 2.2rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--pink);
+      text-shadow: 0 0 20px rgba(255, 0, 85, 0.6);
+    }
+    .modal-desc {
+      font-size: 0.95rem;
+      color: #94a3b8;
+      font-family: monospace;
+      text-align: center;
+      line-height: 1.6;
+    }
+    .modal-btn {
+      background: var(--yellow);
+      border: none;
+      color: #000;
+      font-weight: 900;
+      font-size: 1rem;
+      padding: 12px 28px;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(255, 230, 0, 0.4);
+      touch-action: manipulation;
+    }
+    .modal-btn:active {
+      transform: scale(0.96);
+    }
+  </style>
+</head>
+<body>
+  <div class="scanlines"></div>
+
+  <header>
+    <div class="hud-left">
+      <div class="game-badge">🥋 KUNG FU BLITZ</div>
+      <div class="hud-text" id="score-val">SCORE: 00000</div>
+      <div class="hud-text hud-combo" id="combo-val">0x COMBO</div>
+    </div>
+    <div class="hud-right">
+      <div class="hud-text" id="hp-val">❤❤❤❤❤</div>
+      <a href="index.html" class="btn-action">🔙 MENU</a>
+    </div>
+  </header>
+
+  <div id="viewport">
+    <canvas id="kungfuCanvas" width="560" height="300"></canvas>
+
+    <!-- Tap Screen Split (Left / Right) -->
+    <div id="touch-zones">
+      <div class="touch-half zone-left" id="zone-left">
+        <div class="zone-indicator">◀ STRIKE LEFT</div>
+      </div>
+      <div class="touch-half zone-right" id="zone-right">
+        <div class="zone-indicator">STRIKE RIGHT ▶</div>
+      </div>
+    </div>
+
+    <div class="overlay-modal" id="game-over-modal">
+      <div class="modal-title">KNOCKED OUT!</div>
+      <div class="modal-desc" id="final-stats">COMBO BROKEN.<br>SCORE: 00000</div>
+      <button class="modal-btn" onclick="restartGame()">RETRY (INSERT COIN)</button>
+    </div>
+  </div>
+
+  <script>
+    // --- บล็อกการซูมบน Chrome & Safari บน iPad ---
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    let lastTouchEnd = 0;
+    document.addEventListener('touchend', (e) => {
+      const now = Date.now();
+      if (now - lastTouchEnd <= 300) e.preventDefault();
+      lastTouchEnd = now;
+    }, { passive: false });
+
+    document.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+
+    // --- Audio Engine ---
+    const AudioEngine = {
+      ctx: null,
+      init() {
+        if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+      },
+      playTone(freq, type, dur, endFreq = null, gainVal = 0.12) {
+        if (!this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+          if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + dur);
+          gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + dur);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + dur);
+        } catch(e) {}
+      },
+      whoosh() { this.playTone(340, 'sine', 0.08, 90, 0.12); },
+      hit() {
+        this.playTone(180, 'square', 0.12, 40, 0.2);
+        this.playTone(80, 'triangle', 0.15, 20, 0.25);
+      },
+      miss() { this.playTone(110, 'sawtooth', 0.25, 45, 0.18); },
+      comboUp() { this.playTone(600 + Math.min(game.combo * 15, 600), 'triangle', 0.1, null, 0.1); }
+    };
+
+    // --- Canvas & Responsiveness ---
+    const canvas = document.getElementById('kungfuCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const vp = document.getElementById('viewport');
+      const ratio = 560 / 300;
+      let w = vp.clientWidth;
+      let h = vp.clientWidth / ratio;
+      if (h > vp.clientHeight) {
+        h = vp.clientHeight;
+        w = vp.clientHeight * ratio;
+      }
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // --- Particle & Effect Manager ---
+    const FX = {
+      particles: [],
+      texts: [],
+      ragdolls: [],
+      shake: 0,
+      hitStop: 0,
+      addHit(x, y, color = '#ffe600') {
+        this.shake = 10;
+        this.hitStop = 3; // 3-frame freeze for maximum impact feeling
+        for (let i = 0; i < 22; i++) {
+          const ang = Math.random() * Math.PI * 2;
+          const spd = 3 + Math.random() * 6;
+          this.particles.push({
+            x, y,
+            vx: Math.cos(ang) * spd,
+            vy: Math.sin(ang) * spd - 1,
+            color,
+            life: 18 + Math.random() * 10,
+            maxLife: 28,
+            r: 2.5 + Math.random() * 3
+          });
+        }
+      },
+      addRagdoll(x, y, dirX, color) {
+        this.ragdolls.push({
+          x, y,
+          vx: dirX * (7 + Math.random() * 4),
+          vy: -6 - Math.random() * 4,
+          rot: 0,
+          vRot: dirX * 0.35,
+          color,
+          life: 45
+        });
+      },
+      addText(x, y, str, color = '#fff') {
+        this.texts.push({ x, y, str, color, life: 35, vy: -1.4 });
+      },
+      update() {
+        if (this.shake > 0) this.shake *= 0.85;
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+          const p = this.particles[i];
+          p.x += p.vx; p.y += p.vy;
+          p.vx *= 0.94; p.vy += 0.2;
+          if (--p.life <= 0) this.particles.splice(i, 1);
+        }
+        for (let i = this.ragdolls.length - 1; i >= 0; i--) {
+          const r = this.ragdolls[i];
+          r.x += r.vx; r.y += r.vy;
+          r.vy += 0.45;
+          r.rot += r.vRot;
+          if (--r.life <= 0) this.ragdolls.splice(i, 1);
+        }
+        for (let i = this.texts.length - 1; i >= 0; i--) {
+          const t = this.texts[i];
+          t.y += t.vy;
+          if (--t.life <= 0) this.texts.splice(i, 1);
+        }
+      },
+      draw(c) {
+        for (const p of this.particles) {
+          c.fillStyle = p.color;
+          c.beginPath();
+          c.arc(p.x, p.y, Math.max(0.5, p.r * (p.life / p.maxLife)), 0, Math.PI * 2);
+          c.fill();
+        }
+        for (const r of this.ragdolls) {
+          c.save();
+          c.translate(r.x, r.y);
+          c.rotate(r.rot);
+          c.fillStyle = r.color;
+          c.fillRect(-6, -14, 12, 28);
+          c.restore();
+        }
+        for (const t of this.texts) {
+          c.save();
+          c.font = '900 14px monospace';
+          c.fillStyle = t.color;
+          c.shadowColor = t.color;
+          c.shadowBlur = 8;
+          c.fillText(t.str, t.x - c.measureText(t.str).width / 2, t.y);
+          c.restore();
+        }
+      }
+    };
+
+    // --- Game Logic Core ---
+    const HIT_RANGE = 115; // Striking Range Radius
+
+    const game = {
+      score: 0,
+      combo: 0,
+      maxCombo: 0,
+      hp: 5,
+      maxHp: 5,
+      paused: false,
+      player: {
+        x: 280,
+        y: 215,
+        targetX: 280,
+        facing: 1,
+        strikeTimer: 0,
+        missTimer: 0
+      },
+      enemies: [],
+      spawnTimer: 0
+    };
+
+    function strike(dir) {
+      if (game.paused) return;
+      AudioEngine.init();
+
+      const p = game.player;
+      if (p.missTimer > 0) return; // Stunned from missing
+
+      p.facing = dir;
+      p.strikeTimer = 10;
+
+      // Find closest enemy in target direction
+      let targetIdx = -1;
+      let minDistance = 9999;
+
+      for (let i = 0; i < game.enemies.length; i++) {
+        const e = game.enemies[i];
+        const dist = Math.abs(e.x - p.x);
+        const isTargetDir = (dir === -1 && e.x < p.x) || (dir === 1 && e.x > p.x);
+
+        if (isTargetDir && dist <= HIT_RANGE) {
+          if (dist < minDistance) {
+            minDistance = dist;
+            targetIdx = i;
+          }
+        }
+      }
+
+      if (targetIdx !== -1) {
+        // HIT!
+        const target = game.enemies[targetIdx];
+        target.hp--;
+
+        // Fast dash towards hit
+        p.targetX = p.x + dir * Math.min(minDistance - 15, 45);
+
+        AudioEngine.hit();
+        AudioEngine.comboUp();
+        FX.addHit(target.x, target.y - 10, target.color);
+
+        if (target.hp <= 0) {
+          FX.addRagdoll(target.x, target.y, dir, target.color);
+          game.enemies.splice(targetIdx, 1);
+          game.score += 50 + game.combo * 5;
+        } else {
+          // Bounced back (Multi-hit enemy)
+          target.x += dir * 40;
+          FX.addText(target.x, target.y - 25, "SHIELD!", "#00f3ff");
+        }
+
+        game.combo++;
+        if (game.combo > game.maxCombo) game.maxCombo = game.combo;
+        updateHUD();
+      } else {
+        // MISS!
+        AudioEngine.miss();
+        p.missTimer = 16; // Stun penalty
+        game.combo = 0;
+        FX.addText(p.x, p.y - 35, "MISS!", "#ff0055");
+        updateHUD();
+      }
+    }
+
+    // Touch Event Listeners
+    const zoneLeft = document.getElementById('zone-left');
+    const zoneRight = document.getElementById('zone-right');
+
+    zoneLeft.addEventListener('pointerdown', (e) => { e.preventDefault(); strike(-1); });
+    zoneRight.addEventListener('pointerdown', (e) => { e.preventDefault(); strike(1); });
+
+    // Keyboard support (Arrow Left/Right or A/D)
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'ArrowLeft' || e.key === 'a') strike(-1);
+      if (e.code === 'ArrowRight' || e.key === 'd') strike(1);
+    });
+
+    function spawnEnemy() {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      const speed = 2.4 + Math.min(game.combo * 0.05, 3.2);
+      const isBrute = Math.random() < 0.25;
+
+      game.enemies.push({
+        x: side === -1 ? -20 : 580,
+        y: 215,
+        dir: -side,
+        speed: speed,
+        hp: isBrute ? 2 : 1,
+        maxHp: isBrute ? 2 : 1,
+        color: isBrute ? '#ff0055' : '#00f3ff',
+        w: isBrute ? 16 : 12,
+        h: isBrute ? 32 : 28
+      });
+    }
+
+    function updateHUD() {
+      document.getElementById('score-val').innerText = `SCORE: ${String(game.score).padStart(5, '0')}`;
+      document.getElementById('combo-val').innerText = `${game.combo}x COMBO`;
+      document.getElementById('hp-val').innerText = '❤'.repeat(game.hp) + '🖤'.repeat(game.maxHp - game.hp);
+    }
+
+    function showGameOver() {
+      game.paused = true;
+      document.getElementById('final-stats').innerHTML = `COMBO BROKEN.<br>SCORE: ${game.score}<br>MAX COMBO: ${game.maxCombo}x`;
+      document.getElementById('game-over-modal').style.display = 'flex';
+    }
+
+    function restartGame() {
+      game.score = 0;
+      game.combo = 0;
+      game.maxCombo = 0;
+      game.hp = 5;
+      game.enemies = [];
+      game.player.x = 280;
+      game.player.targetX = 280;
+      game.player.missTimer = 0;
+      game.paused = false;
+      document.getElementById('game-over-modal').style.display = 'none';
+      updateHUD();
+    }
+
+    function update() {
+      if (game.paused) return;
+
+      // Hit-stop frames
+      if (FX.hitStop > 0) {
+        FX.hitStop--;
+        return;
+      }
+
+      const p = game.player;
+      if (p.strikeTimer > 0) p.strikeTimer--;
+      if (p.missTimer > 0) p.missTimer--;
+
+      // Smooth dash return towards center
+      p.x += (p.targetX - p.x) * 0.35;
+      p.targetX += (280 - p.targetX) * 0.08;
+
+      // Spawning
+      game.spawnTimer++;
+      const spawnInterval = Math.max(35, 75 - Math.floor(game.combo * 0.8));
+      if (game.spawnTimer % spawnInterval === 0) {
+        spawnEnemy();
+      }
+
+      // Update enemies
+      for (let i = game.enemies.length - 1; i >= 0; i--) {
+        const e = game.enemies[i];
+        e.x += e.dir * e.speed;
+
+        // Reached player -> Damage Player!
+        if (Math.abs(e.x - p.x) < 14) {
+          game.hp--;
+          game.combo = 0;
+          AudioEngine.miss();
+          FX.addHit(p.x, p.y, '#ff0055');
+          FX.addText(p.x, p.y - 30, "-1 HP!", "#ff0055");
+          game.enemies.splice(i, 1);
+          updateHUD();
+
+          if (game.hp <= 0) {
+            showGameOver();
+            return;
+          }
+        }
+      }
+
+      FX.update();
+    }
+
+    function draw() {
+      ctx.save();
+      if (FX.shake > 0) {
+        ctx.translate((Math.random() - 0.5) * FX.shake, (Math.random() - 0.5) * FX.shake);
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Arena Background
+      ctx.fillStyle = '#0a0d18';
+      ctx.fillRect(0, 0, 560, 300);
+
+      // Neon Arena Floor
+      ctx.strokeStyle = '#1e284a';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < 560; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 230);
+        ctx.lineTo(x + (x - 280) * 0.4, 300);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#141a30';
+      ctx.fillRect(0, 230, 560, 70);
+      ctx.fillStyle = '#ffe600';
+      ctx.fillRect(0, 230, 560, 2);
+
+      const p = game.player;
+
+      // Striking Range Ring Lines (Authentic OFDP indicator)
+      ctx.strokeStyle = 'rgba(0, 243, 255, 0.25)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x - HIT_RANGE, 230);
+      ctx.lineTo(p.x - HIT_RANGE, 240);
+      ctx.moveTo(p.x + HIT_RANGE, 230);
+      ctx.lineTo(p.x + HIT_RANGE, 240);
+      ctx.stroke();
+
+      // Range Zone Dots
+      ctx.fillStyle = 'rgba(0, 243, 255, 0.4)';
+      ctx.beginPath();
+      ctx.arc(p.x - HIT_RANGE, 230, 4, 0, Math.PI * 2);
+      ctx.arc(p.x + HIT_RANGE, 230, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Enemies
+      for (const e of game.enemies) {
+        const inRange = Math.abs(e.x - p.x) <= HIT_RANGE;
+        ctx.fillStyle = e.color;
+
+        // Body
+        ctx.fillRect(e.x - e.w/2, e.y - e.h, e.w, e.h);
+
+        // Indicator dot below enemy when in striking range
+        if (inRange) {
+          ctx.fillStyle = '#ffe600';
+          ctx.beginPath();
+          ctx.arc(e.x, e.y + 8, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Multi-hit health pip
+        if (e.maxHp > 1) {
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(e.x - 8, e.y - e.h - 8, 16 * (e.hp / e.maxHp), 3);
+        }
+      }
+
+      // Player Kung Fu Master
+      ctx.save();
+      ctx.translate(p.x, p.y);
+
+      if (p.missTimer > 0) {
+        // Stunned posture
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(-6, -22, 12, 22);
+        ctx.fillStyle = '#ff0055';
+        ctx.fillText("💫", -6, -28);
+      } else {
+        // Dynamic striking posture
+        ctx.fillStyle = '#ffe600';
+        ctx.fillRect(-6, -26, 12, 26);
+        // Headband
+        ctx.fillStyle = '#ff0055';
+        ctx.fillRect(-7, -26, 14, 4);
+
+        // Fist Punch Strike animation
+        if (p.strikeTimer > 0) {
+          ctx.fillStyle = '#00f3ff';
+          ctx.fillRect(p.facing > 0 ? 6 : -24, -18, 18, 6);
+        }
+      }
+      ctx.restore();
+
+      // Particle VFX & Flying Ragdolls
+      FX.draw(ctx);
+
+      ctx.restore();
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    updateHUD();
+    requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
